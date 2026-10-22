@@ -32,7 +32,7 @@ def test_analytics_run_on_adapted_data():
     m = load()
     assert an.match_summary(m)["score"] == {"home": 1, "away": 0}
     moments = an.detect_moments(m)
-    assert [x["type"] for x in moments] == ["goal", "red_card"]
+    assert [x["type"] for x in moments if x["type"] in ("goal", "red_card")] == ["goal", "red_card"]
 
 
 def test_synthetic_story_is_stable():

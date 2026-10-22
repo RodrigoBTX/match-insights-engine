@@ -82,6 +82,19 @@ function drawPitchBase(root) {
   }
 }
 
+/* Press line = mean distance from own goal where the side wins the ball, before and after the shift. */
+function drawPressLines(g, moment) {
+  const f = moment.facts, side = moment.side, col = colorOf(side);
+  const before = f.window_before_10_min.press_height_m[side], after = f.window_after_10_min.press_height_m[side];
+  if (before == null || after == null) return;
+  const abs = (h) => (side === "home" ? h : 105 - h);
+  for (const [h, label, dash, y] of [[before, `before ${before} m`, "2 1.5", 6], [after, `after ${after} m`, "none", 62]]) {
+    svg("line", { x1: abs(h), y1: 0, x2: abs(h), y2: 68, stroke: col, "stroke-width": 0.8, "stroke-dasharray": dash }, g);
+    svg("text", { x: abs(h) + (side === "home" ? 1 : -1), y, "text-anchor": side === "home" ? "start" : "end",
+      style: `fill:${col}`, "font-weight": 700 }, g, label);
+  }
+}
+
 function shotTitle(e) {
   const xg = e.xg != null ? ` · xG ${e.xg.toFixed(2)}` : "";
   return `${clock(e.t)} ${e.player || ""} (${nameOf(e.side)})${xg} · ${e.outcome || e.type}`;
@@ -109,6 +122,7 @@ function renderPitch() {
     const byId = new Map(m.events.map((e) => [e.id, e]));
     const seq = moment.event_ids.map((id) => byId.get(id)).filter(Boolean);
     const g = svg("g", {}, root);
+    if (moment.type === "tactical_shift") drawPressLines(g, moment);
     seq.forEach((e, i) => {
       const style = `animation-delay:${i * 0.22}s`;
       const col = colorOf(e.side);
@@ -139,11 +153,48 @@ function renderPitch() {
     const s = html("span", {}, [html("i", { class: "dot", style: `background:${colorOf(side)}` }), nameOf(side)]);
     lg.appendChild(s);
   }
-  lg.appendChild(html("span", { text: moment ? "Arrows = passes · ◇ = turnover" : "Size = xG · white ring = goal" }));
+  const area = moment && (moment.type === "tactical_shift" || moment.type === "chaotic_spell");
+  lg.appendChild(html("span", { text: !moment ? "Size = xG · white ring = goal"
+    : moment.type === "tactical_shift" ? "Lines = press height before/after · ◇ = ball won"
+    : area ? "◇ = ball won or lost during the period" : "Arrows = passes · ◇ = turnover" }));
 }
 
 /* ---------- momentum timeline ---------- */
-const MARK = { goal: "G", red_card: "R", big_chance: "C" };
+const MARK = { goal: "G", red_card: "R", big_chance: "C", tactical_shift: "T", chaotic_spell: "≈" };
+
+/* ---------- control vs chaos ---------- */
+const CHAOS_COLOR = "#c77dff";
+const NEUTRAL_COLOR = "#5b6b64";
+
+function stateLabel(windowState) {
+  const m = state.match;
+  return { home_control: `${m.home.name} in control`, away_control: `${m.away.name} in control`,
+    balanced: "Balanced", chaotic: "Chaotic" }[windowState] || windowState;
+}
+
+function renderControl() {
+  const root = $("control");
+  root.replaceChildren();
+  const m = state.match, W = 960, L = 8, R = 8, y = 6, h = 38;
+  const defs = svg("defs", {}, root);
+  const pat = svg("pattern", { id: "chaos-hatch", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+  svg("rect", { width: 8, height: 8, fill: CHAOS_COLOR, "fill-opacity": 0.35 }, pat);
+  svg("rect", { width: 3, height: 8, fill: CHAOS_COLOR }, pat);
+  const cw = (W - L - R) / m.control.length;
+  m.control.forEach((w, i) => {
+    const x = L + i * cw;
+    const fill = w.state === "chaotic" ? "url(#chaos-hatch)" : w.state === "home_control" ? m.home.color
+      : w.state === "away_control" ? m.away.color : NEUTRAL_COLOR;
+    const r = svg("rect", { x: x + 1, y, width: cw - 2, height: h, rx: 4, fill, "fill-opacity": w.state === "balanced" ? 0.55 : 0.9 }, root);
+    svg("title", {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)}\ncontrol ${m.home.short} ${w.control_score.home} / ${m.away.short} ${w.control_score.away}\n${w.sequences_per_min} sequences/min · ${w.avg_passes_per_sequence} passes/sequence`);
+    if (i % 3 === 0) svg("text", { x: x + cw / 2, y: 62, "text-anchor": "middle" }, root, `${w.start}'`);
+  });
+  const lg = $("control-legend");
+  lg.replaceChildren();
+  const item = (color, label, hatched) => html("span", {}, [html("i", { class: "dot", style: `background:${hatched ? `repeating-linear-gradient(45deg,${color},${color} 2px,transparent 2px,transparent 4px)` : color}` }), label]);
+  lg.append(item(m.home.color, `${m.home.short} control`), item(m.away.color, `${m.away.short} control`),
+    item(NEUTRAL_COLOR, "Balanced"), item(CHAOS_COLOR, "Chaotic", true));
+}
 
 function renderMomentum() {
   const root = $("momentum");
@@ -366,7 +417,7 @@ function setMatch(data) {
   $("btn-explain").disabled = true;
   $("result").hidden = true;
   showError("");
-  renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderXG(); renderPossession();
+  renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderXG(); renderPossession();
 }
 
 async function init() {
@@ -376,7 +427,10 @@ async function init() {
     for (const [code, name] of Object.entries(cfg.languages)) sel.appendChild(html("option", { value: code, text: name }));
     setMatch(await api(`/api/match/${cfg.matches[0]}`));
     const wanted = new URLSearchParams(location.search).get("moment");  // deep link, e.g. /?moment=m1
-    if (wanted && state.match.moments.some((m) => m.id === wanted)) select(wanted);
+    if (wanted && state.match.moments.some((m) => m.id === wanted)) {
+      select(wanted);
+      if (new URLSearchParams(location.search).get("explain") === "1") runAgents(wanted);  // e.g. /?moment=m7&explain=1
+    }
   } catch (err) {
     showError(`Could not load the match: ${err.message}`);
   }

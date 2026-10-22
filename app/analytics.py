@@ -3,7 +3,7 @@ agents interpret these facts, they do not invent them."""
 import math
 from collections import defaultdict
 
-from .schema import Event, Match
+from .schema import PITCH_W, Event, Match
 
 OTHER = {"home": "away", "away": "home"}
 
@@ -165,6 +165,20 @@ def window_stats(match: Match, start: float, end: float) -> dict:
     res["turnovers_per_min"] = round(turnovers / span, 2)
     top = max(res["possession_pct"], key=res["possession_pct"].get)
     res["game_state"] = f"{top}_control" if res["possession_pct"][top] >= 60 else "contested"
+
+    ft = res["final_third_passes"]
+    ft_total = (ft["home"] + ft["away"]) or 1
+    res["field_tilt_pct"] = {s: round(100 * ft[s] / ft_total) for s in ft}  # share of final-third passes
+    # press height: mean distance from own goal where a side wins the ball (higher = more aggressive press)
+    res["press_height_m"] = {}
+    for s in ("home", "away"):
+        xs = [e.x if s == "home" else PITCH_W - e.x
+              for e in ev if e.type in ("tackle", "interception") and e.side == s]
+        res["press_height_m"][s] = round(sum(xs) / len(xs), 1) if len(xs) >= 3 else None
+    seq_ids = {e.sequence_id for e in ev if e.sequence_id is not None and e.type == "pass"}
+    res["sequences_per_min"] = round(len(seq_ids) / span, 2)
+    n_pass = sum(passes.values())
+    res["avg_passes_per_sequence"] = round(n_pass / len(seq_ids), 1) if seq_ids else 0.0
     res["tackles_interceptions"] = {s: sum(1 for e in ev if e.type in ("tackle", "interception") and e.side == s)
                                     for s in passes}
     return res
@@ -172,6 +186,137 @@ def window_stats(match: Match, start: float, end: float) -> dict:
 
 def _score_str(h: int, a: int) -> str:
     return f"{h}-{a}"
+
+
+def control_windows(match: Match, size: int = 5) -> list[dict]:
+    """Classify each window as home/away control, balanced or chaotic.
+
+    Control blends possession with field tilt (share of final-third passes). A window is chaotic when
+    possession changes hands much more often than the match average (short sequences, constant turnovers).
+    """
+    raw = [window_stats(match, s, min(s + size, 93)) for s in range(0, 93, size)]
+    mean_spm = (sum(w["sequences_per_min"] for w in raw) / len(raw)) or 1.0
+    out = []
+    for w in raw:
+        score = {s: round(0.5 * w["possession_pct"][s] + 0.5 * w["field_tilt_pct"][s]) for s in ("home", "away")}
+        chaos = round(w["sequences_per_min"] / mean_spm, 2)
+        top = max(score, key=score.get)
+        state = "chaotic" if chaos >= 1.25 else f"{top}_control" if score[top] >= 62 else "balanced"
+        out.append({"start": w["from_minute"], "end": w["to_minute"], "state": state, "chaos_ratio": chaos,
+                    "control_score": score, "possession_pct": w["possession_pct"], "field_tilt_pct": w["field_tilt_pct"],
+                    "sequences_per_min": w["sequences_per_min"],
+                    "avg_passes_per_sequence": w["avg_passes_per_sequence"]})
+    return out
+
+
+def chaotic_spells(match: Match) -> list[dict]:
+    """Merge consecutive chaotic windows into spells and compare them with the rest of the match."""
+    wins = control_windows(match)
+    spells, run = [], []
+    for w in wins + [{"state": None}]:
+        if w["state"] == "chaotic":
+            run.append(w)
+        elif run:
+            spells.append((run[0]["start"], run[-1]["end"]))
+            run = []
+    names = {"home": match.home.name, "away": match.away.name}
+    out = []
+    for start, end in spells:
+        inside = window_stats(match, start, end)
+        h, a = score_at(match, start * 60)
+        rest_spm = [w["sequences_per_min"] for w in wins if not start <= w["start"] < end]
+        rest_pps = [w["avg_passes_per_sequence"] for w in wins if not start <= w["start"] < end]
+        lo, hi = start * 60, end * 60
+        ids = [e.id for e in match.events
+               if lo <= e.t < hi and e.type in ("tackle", "interception", "foul", "yellow_card", "shot", "goal")][:40]
+        side = "home" if inside["possession_pct"]["home"] >= 50 else "away"
+        out.append({
+            "minute": start, "side": side, "title": f"Chaotic spell – {start}' to {end}'", "event_ids": ids,
+            "facts": {
+                "minute": f"{start}'00", "teams": {"home": match.home.name, "away": match.away.name},
+                "team": "both teams", "side": side, "player": None, "event": "chaotic_spell", "xg": None,
+                "shot_speed_kmh": None, "score_before": _score_str(h, a), "score_after": _score_str(h, a),
+                "win_probability_before": None, "win_probability_after": None, "spell_minutes": f"{start}-{end}",
+                "ten_minutes_before_spell": {k: window_stats(match, max(0, start - 10), start)[k] for k in _SHIFT_KEYS},
+                "during_spell": {k: inside[k] for k in _SHIFT_KEYS},
+                "rest_of_match_average": {"sequences_per_min": round(sum(rest_spm) / len(rest_spm), 2),
+                                          "avg_passes_per_sequence": round(sum(rest_pps) / len(rest_pps), 1)},
+                "sequence": None, "against_run_of_play": False, "likely_trigger": None,
+                "red_cards_so_far": reds_before(match, start * 60),
+            },
+        })
+    return out
+
+
+_SHIFT_KEYS = ("possession_pct", "field_tilt_pct", "press_height_m", "shots", "xg", "sequences_per_min",
+               "avg_passes_per_sequence", "turnovers_per_min")
+
+
+def _shift_score(before: dict, after: dict) -> float:
+    """Home-perspective swing: field tilt points plus 1.5x the change in (home - away) press height."""
+    delta = after["field_tilt_pct"]["home"] - before["field_tilt_pct"]["home"]
+    ph = [w["press_height_m"] for w in (before, after)]
+    if all(p["home"] is not None and p["away"] is not None for p in ph):
+        delta += 1.5 * ((ph[1]["home"] - ph[1]["away"]) - (ph[0]["home"] - ph[0]["away"]))
+    return delta
+
+
+def tactical_shifts(match: Match, window: int = 10, threshold: int = 25, max_shifts: int = 3) -> list[dict]:
+    """Find the minutes where territory and pressing swing most between the 10 minutes before and after."""
+    cands = []
+    for t in range(window, 93 - window + 1):
+        before, after = window_stats(match, t - window, t), window_stats(match, t, t + window)
+        delta = _shift_score(before, after)
+        cands.append((abs(delta), t, delta, before, after))
+    cands.sort(key=lambda c: c[0], reverse=True)
+    chosen = []
+    for score, t, delta, before, after in cands:
+        if score < threshold or len(chosen) == max_shifts:
+            break
+        if all(abs(t - c["t"]) >= window for c in chosen):
+            chosen.append({"t": t, "delta": delta, "before": before, "after": after})
+    chosen.sort(key=lambda c: c["t"])
+
+    names = {"home": match.home.name, "away": match.away.name}
+    out = []
+    for c in chosen:
+        t, side = c["t"], "home" if c["delta"] > 0 else "away"
+        before, after = c["before"], c["after"]
+        # a cause must precede its effect: the latest goal or red card in the 6 minutes up to the shift
+        causes = [e for e in match.events if e.type in ("goal", "red_card") and 0 <= t - e.t / 60 <= 6]
+        trig = None
+        if causes:
+            e = max(causes, key=lambda x: x.t)
+            trig = {"event": e.type, "team": names[e.side], "minute": f"{e.minute}'{e.second:02d}"}
+        pb, pa = before["press_height_m"][side], after["press_height_m"][side]
+        press_delta = round(pa - pb, 1) if pb is not None and pa is not None else None
+        if press_delta is not None and press_delta >= 8:
+            phrase = "press higher up the pitch"
+        elif after["field_tilt_pct"][side] >= 60:
+            phrase = "take territorial control"
+        else:
+            phrase = "claw back territory"
+        h, a = score_at(match, t * 60)
+        reds = reds_before(match, t * 60)
+        lo, hi = t * 60, (t + window) * 60
+        press_ids = [e.id for e in match.events
+                     if e.side == side and e.type in ("tackle", "interception") and lo <= e.t < hi][:40]
+        out.append({
+            "minute": t, "side": side, "title": f"Tactical shift – {names[side]} {phrase}", "event_ids": press_ids,
+            "facts": {
+                "minute": f"{t}'00", "teams": {"home": match.home.name, "away": match.away.name},
+                "team": names[side], "side": side, "player": None, "event": "tactical_shift", "xg": None,
+                "shot_speed_kmh": None, "score_before": _score_str(h, a), "score_after": _score_str(h, a),
+                "win_probability_before": None, "win_probability_after": None,
+                "window_before_10_min": {k: before[k] for k in _SHIFT_KEYS},
+                "window_after_10_min": {k: after[k] for k in _SHIFT_KEYS},
+                "change": {"field_tilt_points": abs(after["field_tilt_pct"]["home"] - before["field_tilt_pct"]["home"]),
+                           "press_height_change_m": press_delta,
+                           "sequences_per_min": round(after["sequences_per_min"] - before["sequences_per_min"], 2)},
+                "likely_trigger": trig, "sequence": None, "against_run_of_play": False, "red_cards_so_far": reds,
+            },
+        })
+    return out
 
 
 def detect_moments(match: Match) -> list[dict]:
@@ -220,12 +365,20 @@ def detect_moments(match: Match) -> list[dict]:
             title += f" ({seq['kind']})"
         facts["against_run_of_play"] = against_run
         moments.append({
-            "id": f"m{len(moments) + 1}", "minute": e.minute, "second": e.second,
+            "minute": e.minute, "second": e.second,
             "type": kind, "side": e.side, "title": title,
             "event_id": e.id, "sequence_id": e.sequence_id,
             "event_ids": seq["event_ids"] if seq else [e.id],
             "facts": facts,
         })
+    for kind, found in (("tactical_shift", tactical_shifts(match)), ("chaotic_spell", chaotic_spells(match))):
+        for s in found:
+            moments.append({"minute": s["minute"], "second": 0, "type": kind, "side": s["side"],
+                            "title": s["title"], "event_id": None, "sequence_id": None,
+                            "event_ids": s["event_ids"], "facts": s["facts"]})
+    moments.sort(key=lambda m: (m["minute"], m["second"]))
+    for i, m in enumerate(moments, 1):
+        m["id"] = f"m{i}"
     return moments
 
 

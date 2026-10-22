@@ -46,6 +46,7 @@ def payload(match: Match) -> dict:
         "summary": an.match_summary(match),
         "momentum": an.momentum(match), "xg": an.xg_timeline(match),
         "possession": an.possession_windows(match),
+        "control": an.control_windows(match),
         "moments": MOMENTS[match.id],
         "events": [
             {"id": e.id, "t": round(e.t / 60, 2), "side": e.side, "type": e.type, "x": e.x, "y": e.y,

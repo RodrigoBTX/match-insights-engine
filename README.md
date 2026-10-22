@@ -25,6 +25,10 @@ StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)     
   guard (`app/grounding.py`) then checks that each figure in the final text can be traced to the data. In an
   adversarial test the Verifier alone missed some planted wrong figures, which is why the guard exists.
   Derived figures (a difference, a sum) are reported as untraced rather than silently accepted.
+- **Control vs chaos and tactical shifts.** Each 5-minute window is classified as home control, away control,
+  balanced or chaotic (control = possession + field tilt; chaos = possession changing hands far more often than
+  the match average). The 10-minute swings in territory and press height are detected as tactical shifts and
+  linked to the goal or red card that *preceded* them. Both appear as explainable moments.
 - **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
 - **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
   event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture

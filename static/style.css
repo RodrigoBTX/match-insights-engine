@@ -86,6 +86,7 @@ svg text { fill: var(--muted); font-size: 10px; font-family: inherit; }
 .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; flex-wrap: wrap; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
+.note { margin: 8px 0 0; }
 .marker { cursor: pointer; }
 .marker:focus-visible circle.hit { stroke: var(--accent); stroke-width: 2; }
 

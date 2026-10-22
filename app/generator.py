@@ -46,17 +46,25 @@ def to_abs(side: str, lx: float, ly: float) -> tuple[float, float]:
     return (lx, ly) if side == "home" else (PITCH_W - lx, PITCH_H - ly)
 
 
-def phase(minute: float) -> tuple[float, float]:
-    """(home possession probability, shot-ending probability) by minute."""
+def phase(minute: float) -> tuple[float, float, tuple[int, int]]:
+    """(home possession probability, shot-ending probability, passes per sequence) by minute."""
+    if minute < 12:
+        return 0.64, 0.30, (5, 8)   # calm, patient home control
     if minute < 27:
-        return 0.64, 0.30   # home controls the game early
+        return 0.64, 0.30, (3, 8)
+    if minute < 36:
+        return 0.54, 0.30, (3, 7)
     if minute < 45:
-        return 0.54, 0.30
+        return 0.50, 0.28, (2, 4)   # scrappy spell: short sequences, constant turnovers
     if minute < 56:
-        return 0.50, 0.28
+        return 0.50, 0.28, (3, 7)
     if minute < 63:
-        return 0.68, 0.34   # away down to ten men
-    return 0.72, 0.46       # sustained home pressure
+        return 0.68, 0.34, (4, 8)   # away down to ten men
+    return 0.72, 0.46, (4, 8)       # sustained home pressure
+
+
+def scrappy(minute: float) -> bool:
+    return 36 <= minute < 45
 
 
 class Gen:
@@ -119,14 +127,17 @@ class Gen:
 
     # ------------------------------------------------------------------ random play
     def random_sequence(self, t: float, minute: float) -> float:
-        home_p, shot_p = phase(minute)
+        home_p, shot_p, lengths = phase(minute)
         side = "home" if self.r.random() < home_p else "away"
         other = "away" if side == "home" else "home"
         self.seq += 1
-        n = self.r.randint(3, 8)
+        n = self.r.randint(*lengths)
         sx = self.r.uniform(18, 55)
         shooting = self.r.random() < shot_p * 0.4
         tx = self.r.uniform(80, 94) if shooting else self.r.uniform(55, 80)
+        if side == "away" and minute >= 56 and not shooting:
+            # ten men, pinned back: they lose the ball early and the home side wins it high up the pitch
+            sx, tx = self.r.uniform(12, 30), self.r.uniform(26, 50)
         xs = sorted([sx + (tx - sx) * i / n + self.r.gauss(0, 3) for i in range(n + 1)])
         path = [(max(2, min(103, x)), max(4, min(64, PITCH_H / 2 + self.r.gauss(0, 14)))) for x in xs]
         t, holder = self.build_up(t, side, path)
@@ -148,7 +159,7 @@ class Gen:
                 self.add(t, other, "interception", d, PITCH_W - lx, PITCH_H - ly, outcome="won")
             else:
                 self.add(t, side, "foul", holder, lx, ly)
-        return t + self.r.uniform(3, 8)
+        return t + (self.r.uniform(1, 3.5) if scrappy(minute) else self.r.uniform(3, 8))
 
     # ------------------------------------------------------------------ scripted story
     def script(self) -> list[tuple[float, callable]]:

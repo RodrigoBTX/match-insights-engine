@@ -7,7 +7,8 @@ from app.grounding import allowed_numbers, numeric_check
 
 def moment_facts():
     m = generate_match(7)
-    return json.dumps(an.detect_moments(m)[0]["facts"])
+    goal = next(x for x in an.detect_moments(m) if x["type"] == "goal")
+    return json.dumps(goal["facts"])
 
 
 def test_correct_text_passes():

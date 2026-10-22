@@ -35,7 +35,7 @@ def numeric_check(text: str, allowed: list[float]) -> dict:
         if n == int(n) and n <= 10:
             continue
         checked += 1
-        tol = 0.5 if n == int(n) else 0.051  # integers may be rounded, decimals may not
+        tol = 1.0 if n == int(n) else 0.051  # integers may be rounded or truncated, decimals may not
         if not any(abs(n - a) <= tol for a in allowed):
             unverified.append(token)
     return {"checked": checked, "unverified": sorted(set(unverified))}

@@ -61,9 +61,9 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
         evidence.append(out)  # tool results count as traceable data for the numeric guard
         return out
 
-    @tool(name="window_stats", description="Possession, shots, xG, final-third passes and game state "
-          "(home_control/away_control/contested) between two match minutes. Keys are 'home' and 'away'. "
-          "Use it to compare phases of the game.")
+    @tool(name="window_stats", description="Possession, shots, xG, final-third passes, field tilt, press height "
+          "(metres from own goal where the ball is won), sequences per minute and passes per sequence between "
+          "two match minutes. Keys are 'home' and 'away'. Use it to compare phases of the game.")
     def window_stats(start_minute: float, end_minute: float) -> str:
         log("window_stats", {"start_minute": start_minute, "end_minute": end_minute})
         return reply(an.window_stats(match, start_minute, end_minute))
@@ -101,7 +101,13 @@ ANALYST_PROMPT = (
     + NAMING +
     "last_10_min_before_moment covers the 10 minutes before the moment and excludes the moment itself. "
     "Say what the data explains: why this moment mattered (score, win probability), whether it went with or "
-    "against the run of play, and what changed tactically. Ignore the delivery request; it is for the Localiser."
+    "against the run of play, and what changed tactically. For event 'tactical_shift' explain the swing using "
+    "field tilt (share of final-third passes), press height (metres from own goal where the ball is won) and "
+    "likely_trigger; for 'chaotic_spell' explain the loss of control by BOTH teams: more sequences per minute, "
+    "fewer passes per sequence and more turnovers than ten_minutes_before_spell and the rest of the match. A "
+    "chaotic spell is not one team imposing itself: never say a team raised its pressure or possession unless "
+    "ten_minutes_before_spell and during_spell show that rise. Report only what the numbers show; do not claim a "
+    "cause that is not in likely_trigger. Ignore the delivery request; it is for the Localiser."
 )
 NARRATOR_PROMPT = (
     "You are the Narrator agent. Using ONLY the facts and the Analyst's findings in the conversation, write a "
@@ -119,7 +125,9 @@ RECAP_NARRATOR_PROMPT = (
 VERIFIER_PROMPT = (
     "You are the Verifier agent, the hallucination guard. Check the Narrator's JSON claim by claim against the "
     "facts (first message) and the Analyst findings. A claim is an issue if a number, name, minute or causal "
-    "statement is not supported by them. Reply with ONLY a JSON object: "
+    "statement is not supported by them. A claim that something rose, fell, increased, decreased, improved or "
+    "dropped is supported only if BOTH the earlier and the later value are in the facts and move in that "
+    "direction; a lone value does not show a change. Reply with ONLY a JSON object: "
     '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": ["short description of each '
     'unsupported claim, empty if none"]}. Be strict but do not flag harmless paraphrase.'
 )
@@ -150,10 +158,12 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     else:
         agents = [Agent(c, RECAP_NARRATOR_PROMPT, name="Narrator")]
         keys = ("minute", "player", "xg", "score_before", "score_after", "win_probability_before",
-                "win_probability_after", "against_run_of_play", "sequence")
+                "win_probability_after", "against_run_of_play", "sequence", "change", "likely_trigger",
+                "during_spell", "rest_of_match_average")
         task = "Match facts:\n" + json.dumps({
             "home": match.home.name, "away": match.away.name, "summary": an.match_summary(match),
-            "moments": [{"title": m["title"], "facts": {k: m["facts"][k] for k in keys}} for m in moments]})
+            "moments": [{"title": m["title"], "facts": {k: m["facts"][k] for k in keys if k in m["facts"]}}
+                        for m in moments]})
     agents += [Agent(c, VERIFIER_PROMPT, name="Verifier"), Agent(c, LOCALISER_PROMPT, name="Localiser")]
     names = [a.name for a in agents]
     yield {"event": "plan", "agents": names}
