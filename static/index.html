@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Match Insights Engine</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Match Insights Engine</h1>
+      <p class="sub">Synthetic football events &rarr; explainable match intelligence</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="btn-new" class="ghost" type="button">New synthetic match</button>
+    <label class="ghost file" title="StatsBomb-style event JSON">
+      Load real event feed
+      <input id="file" type="file" accept=".json,application/json" hidden>
+    </label>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="left">
+    <div class="card scoreboard" id="scoreboard" aria-live="polite"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="pitch-title">Shot map</h2>
+        <span class="legend" id="pitch-legend"></span>
+      </div>
+      <svg id="pitch" viewBox="-3 -3 111 74" role="img" aria-label="Pitch with match events"></svg>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Momentum &amp; key moments</h2>
+        <span class="hint">Select a marker to inspect and explain it</span>
+      </div>
+      <svg id="momentum" viewBox="0 0 960 190" role="img" aria-label="Momentum timeline"></svg>
+      <div id="moments" class="moments"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head"><h2>Cumulative xG</h2></div>
+        <svg id="xg" viewBox="0 0 460 170" role="img" aria-label="Cumulative expected goals"></svg>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Possession by 5 minutes</h2></div>
+        <svg id="poss" viewBox="0 0 460 170" role="img" aria-label="Possession share"></svg>
+      </div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <div class="card panel">
+      <div class="card-head"><h2>Explain</h2><span id="selected-label" class="hint">Whole match</span></div>
+
+      <div class="controls">
+        <label>Audience
+          <select id="audience">
+            <option value="casual_fan">Casual fan</option>
+            <option value="coach">Coach</option>
+            <option value="broadcaster">Broadcaster</option>
+          </select>
+        </label>
+        <label>Language
+          <select id="language"></select>
+        </label>
+      </div>
+      <div class="buttons">
+        <button id="btn-explain" class="primary" type="button" disabled>Explain this moment</button>
+        <button id="btn-recap" class="secondary" type="button">Match recap</button>
+      </div>
+
+      <div id="steps" class="steps" hidden></div>
+      <div id="error" class="error" role="alert" hidden></div>
+      <article id="result" class="result" hidden></article>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  Data source: <span id="source">synthetic</span> &middot; All numbers are computed deterministically; agents explain them.
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

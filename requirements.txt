@@ -1,0 +1,7 @@
+﻿agent-framework
+azure-identity
+python-dotenv
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
