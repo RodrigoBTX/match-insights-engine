@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 
 from . import analytics as an
 from . import players as pl
-from .grounding import allowed_numbers, numeric_check
+from .grounding import allowed_numbers, framing_issues, numeric_check
 from .schema import Match
 
 load_dotenv()
@@ -131,18 +131,24 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
     return [player_stats, top_players]
 
 
+CHAOS_RULE = (
+    "If the event is 'chaotic_spell', the headline, the explanation and any graphic title or line must describe a "
+    "loss of control by BOTH teams (possession changing hands more often, shorter moves, more turnovers): never "
+    "present it as one team raising its pressure, possession or intensity, and never name only one team in the "
+    "headline. If the event is 'tactical_shift', name the team that gained ground. "
+)
+
 GRAPHIC_RULE = (
     " The audience is a broadcaster, so ALSO include a key \"graphic\" for an on-screen lower third: "
-    '{"title": "max 6 words", "line": "one on-air sentence of max 20 words", "chips": [{"label": "max 3 words", '
-    '"value": "a short figure"}]} with exactly 3 chips. Use only figures that appear in the conversation. The '
-    'title must state the news itself (who did what), never a generic label such as "Key Match Stats", "Moment '
-    'That Mattered" or "Match Summary".'
+    '{"title": "max 6 words", "line": "one on-air sentence of max 20 words"}. Do not write stat cards: the three '
+    "figures shown beside the text are computed from the data. Use only figures that appear in the conversation. "
+    'The title must state the news itself (who did what), never a generic label such as "Key Match Stats", "Moment '
+    'That Mattered" or "Match Summary". ' + CHAOS_RULE
 )
 
 LOCALISER_GRAPHIC = (
-    ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": "...", "chips": [{"label": "...", '
-    '"value": "..."}]}, copied from the "graphic" object in the Narrator JSON and translated, with exactly the same '
-    "figures and the same number of chips. Never omit it."
+    ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": "..."}, copied from the "graphic" '
+    "object in the Narrator JSON and translated, with exactly the same figures. Never omit it."
 )
 
 GOAL_RULE = (
@@ -177,7 +183,8 @@ NARRATOR_PROMPT = (
     "You are the Narrator agent. Using ONLY the facts and the Analyst's findings in the conversation, write a "
     "clear, neutral explanation of WHY the moment matters. Reply with ONLY a JSON object: "
     '{"headline": "max 12 words", "explanation": "2-4 sentences", "tactical_takeaway": "1 sentence"}. '
-    "Do not add numbers or causes that are not in the conversation. Ignore the delivery request."
+    "Do not add numbers or causes that are not in the conversation. " + CHAOS_RULE +
+    "Ignore the delivery request."
 )
 RECAP_NARRATOR_PROMPT = (
     "You are the Narrator agent. Using ONLY the match facts in the conversation, write a recap that tells the "
@@ -242,6 +249,15 @@ def normalize_graphic(raw) -> dict | None:
     clean = [{"label": str(c.get("label", "")).strip(), "value": str(c.get("value", "")).strip()}
              for c in (chips if isinstance(chips, list) else []) if isinstance(c, dict)]
     return {"title": title.strip(), "line": line.strip(), "chips": [c for c in clean if c["label"] and c["value"]][:3]}
+
+
+def wording_issues(final: dict, event: str | None, teams: list[tuple[str, ...]]) -> list[str]:
+    """Framing check applied to each field on its own: a long explanation that mentions both teams must not
+    hide a headline or a graphic line that names only one."""
+    graphic = final.get("graphic") or {}
+    fields = {"headline": final.get("headline", ""), "explanation": final.get("explanation", ""),
+              "graphic title": graphic.get("title", ""), "graphic line": graphic.get("line", "")}
+    return [f"{name}: {msg}" for name, text in fields.items() for msg in framing_issues(event, text, teams)]
 
 
 def narrated_text(final: dict) -> str:
@@ -324,6 +340,10 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     findings = analysis.get("findings", [])
     allowed = allowed_numbers(task, *evidence, *findings)
     verification["numeric_check"] = numeric_check(narrated_text(final), allowed)
+    aliases = [(t.name, t.name.split()[0]) for t in (match.home, match.away)]  # "Northbridge FC" or "Northbridge"
+    event = moment["facts"].get("event") if moment is not None else None
+    wording = wording_issues(final, event, aliases)
+    verification["issues"] = [*(verification.get("issues") or []), *wording]
     yield {"event": "result", "result": {
         **final, "findings": findings, "verification": verification, "trace": trace}}
 

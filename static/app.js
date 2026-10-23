@@ -88,11 +88,23 @@ function drawPressLines(g, moment) {
   const before = f.window_before_10_min.press_height_m[side], after = f.window_after_10_min.press_height_m[side];
   if (before == null || after == null) return;
   const abs = (h) => (side === "home" ? h : 105 - h);
-  for (const [h, label, dash, y] of [[before, `before ${before} m`, "2 1.5", 6], [after, `after ${after} m`, "none", 62]]) {
+  // labels stay at the top, one row each, with an outline: they must not hide behind the lower third
+  // (stage) nor be crossed by the other line when the two lines are close
+  const halo = "paint-order:stroke;stroke:#0f2f23;stroke-width:.9px;stroke-linejoin:round";
+  for (const [h, label, dash, y] of [[before, `before ${before} m`, "2 1.5", 5.5], [after, `after ${after} m`, "none", 11]]) {
     svg("line", { x1: abs(h), y1: 0, x2: abs(h), y2: 68, stroke: col, "stroke-width": 0.8, "stroke-dasharray": dash }, g);
     svg("text", { x: abs(h) + (side === "home" ? 1 : -1), y, "text-anchor": side === "home" ? "start" : "end",
-      style: `fill:${col}`, "font-weight": 700 }, g, label);
+      style: `fill:${col};${halo}`, "font-weight": 700 }, g, label);
   }
+}
+
+/* What the symbols on the pitch mean for the current selection (page legend and broadcast stage). */
+function legendText(moment, player) {
+  if (player) return "Bright arrows = progressive passes · circles = shots · ◇ = ball won · ■ = save";
+  if (!moment) return "Size = xG · white ring = goal";
+  if (moment.type === "tactical_shift") return "Lines = press height before/after · ◇ = ball won";
+  if (moment.type === "chaotic_spell") return "◇ = ball won or lost during the period";
+  return "Arrows = passes · ◇ = turnover";
 }
 
 function shotTitle(e) {
@@ -161,14 +173,7 @@ function renderPitch() {
     const s = html("span", {}, [html("i", { class: "dot", style: `background:${colorOf(side)}` }), nameOf(side)]);
     lg.appendChild(s);
   }
-  const area = moment && (moment.type === "tactical_shift" || moment.type === "chaotic_spell");
-  if (player) {
-    lg.appendChild(html("span", { text: "Bright arrows = progressive passes · circles = shots · ◇ = ball won" }));
-    return;
-  }
-  lg.appendChild(html("span", { text: !moment ? "Size = xG · white ring = goal"
-    : moment.type === "tactical_shift" ? "Lines = press height before/after · ◇ = ball won"
-    : area ? "◇ = ball won or lost during the period" : "Arrows = passes · ◇ = turnover" }));
+  lg.appendChild(html("span", { text: legendText(moment, player) }));
 }
 
 /* One player's passes (progressive ones highlighted), shots and ball wins. */
@@ -185,6 +190,9 @@ function drawPlayer(root, p) {
       svg("title", {}, c, shotTitle(e));
     } else if (e.type === "tackle" || e.type === "interception") {
       svg("rect", { x: e.x - 1, y: e.y - 1, width: 2, height: 2, transform: `rotate(45 ${e.x} ${e.y})`, fill: col }, g);
+    } else if (e.type === "save") {  // a goalkeeper's only events: without these his pitch is empty
+      const s = svg("rect", { x: e.x - 1.3, y: e.y - 1.3, width: 2.6, height: 2.6, rx: 0.4, fill: col, stroke: "#fff", "stroke-width": 0.35 }, g);
+      svg("title", {}, s, `${clock(e.t)} save`);
     }
   }
 }
@@ -219,6 +227,7 @@ function openStage(result) {
   $("stage").style.setProperty("--accent-team", colorOf(side));
   const score = (moment ? moment.facts.score_after : `${m.summary.score.home}-${m.summary.score.away}`).replace("-", " – ");
   const tag = moment ? TAGS[moment.type] || "MOMENT" : player ? "PLAYER SPOTLIGHT" : "MATCH RECAP";
+  $("stage-legend").textContent = legendText(moment, player);
 
   $("bug").replaceChildren(
     html("span", { class: "bug-team", text: m.home.short, style: `border-color:${m.home.color}` }),
@@ -241,9 +250,10 @@ function openStage(result) {
     ]),
     html("div", { class: "lower-chips" }, g.chips.map((c) =>
       html("div", { class: "lower-chip" }, [
-        html("b", { text: c.value, class: c.value.length > 6 ? "long" : "" }), html("span", { text: c.label })]))),
+        html("b", { text: c.value, class: c.value.length > 6 ? "long" : "" }), html("span", { text: c.label }),
+        ...(c.detail ? [html("small", { text: c.detail })] : [])]))),
     html("span", { class: `lower-verified ${verified ? "ok" : "warn"}`,
-      text: verified ? "✔ Verified against the data" : "⚠ Check figures before airing" }),
+      text: verified ? "✔ Verified against the data" : "⚠ Needs a check before airing" }),
   );
   $("stage-backdrop").hidden = false;
   $("stage-close").focus();
@@ -264,10 +274,13 @@ function renderPlayers() {
   const maxImpact = Math.max(...m.players.map((p) => p.impact), 1);
   for (const side of ["home", "away"]) {
     const col = html("div", { class: "pcol" }, [html("h3", { text: m[side].name, style: `border-color:${m[side].color}` })]);
-    col.appendChild(html("div", { class: "prow head" }, ["", "Player", "Impact", "G", "xG", "CC", "Prog"].map((t) => html("span", { text: t }))));
+    const heads = [["", ""], ["Player", "Player and position"], ["Impact", "Formula score, not a human rating"],
+      ["G", "Goals"], ["xG", "Expected goals: quality of the shots taken"], ["CC", "Chances created: last pass before a shot"],
+      ["Prog", "Progressive passes: 10 m or more towards goal"]];
+    col.appendChild(html("div", { class: "prow head" }, heads.map(([t, tip]) => html("span", { text: t, title: tip }))));
     for (const p of m.players.filter((q) => q.side === side).slice(0, 6)) {
       const row = html("button", { class: "prow", type: "button", "aria-pressed": p.id === state.selectedPlayer,
-        title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.tackles + p.interceptions} ball wins` }, [
+        title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.ball_wins} ball wins${p.saves ? `, ${p.saves} saves` : ""}` }, [
         html("span", { class: "rank", text: String(p.rank_in_team) }),
         html("span", { class: "pname" }, [p.name, html("small", { text: ` ${p.position}` })]),
         html("span", { class: "impact" }, [html("i", { style: `width:${(100 * p.impact) / maxImpact}%;background:${m[side].color}` }), html("b", { text: p.impact.toFixed(1) })]),
@@ -321,12 +334,13 @@ function renderControl() {
 function renderMomentum() {
   const root = $("momentum");
   root.replaceChildren();
-  const m = state.match, W = 960, L = 36, R = 12, base = 112, amp = 62;
+  const m = state.match, W = 960, L = 36, R = 12, base = 134, amp = 62;
   const xs = (min) => L + (min / 93) * (W - L - R);
+  $("momentum-note").textContent = `Bars show the pressure each minute (final-third passes, shots, corners): above the line favours ${m.home.name}, below favours ${m.away.name}. Markers are key moments: G goal · R red card · C big chance · T tactical shift · ≈ chaotic spell. Select one to inspect it.`;
   svg("line", { x1: L, y1: base, x2: W - R, y2: base, stroke: "var(--line)" }, root);
-  svg("line", { x1: xs(45), y1: 34, x2: xs(45), y2: 176, stroke: "var(--line)", "stroke-dasharray": "4 4" }, root);
-  svg("text", { x: xs(45) + 4, y: 46 }, root, "HT");
-  for (const t of [0, 15, 30, 45, 60, 75, 90]) svg("text", { x: xs(t), y: 188, "text-anchor": "middle" }, root, `${t}'`);
+  svg("line", { x1: xs(45), y1: 60, x2: xs(45), y2: base + amp + 4, stroke: "var(--line)", "stroke-dasharray": "4 4" }, root);
+  svg("text", { x: xs(45) + 4, y: 70 }, root, "HT");
+  for (const t of [0, 15, 30, 45, 60, 75, 90]) svg("text", { x: xs(t), y: base + amp + 18, "text-anchor": "middle" }, root, `${t}'`);
   svg("text", { x: 4, y: base - amp + 4 }, root, m.home.short);
   svg("text", { x: 4, y: base + amp + 4 }, root, m.away.short);
   const bw = (W - L - R) / 93 - 1.5;
@@ -336,14 +350,19 @@ function renderMomentum() {
     svg("rect", { x: xs(p.minute) - bw / 2, y: p.value > 0 ? base - h : base, width: bw, height: h, rx: 1.5,
       fill: p.value > 0 ? m.home.color : m.away.color, "fill-opacity": 0.8 }, root);
   }
+  // Markers that would overlap go on a second or third lane instead of hiding each other.
+  const laneEnd = [-Infinity, -Infinity, -Infinity];
   for (const mo of m.moments) {
     const x = xs(mo.minute + mo.second / 60);
+    const lane = Math.max(0, laneEnd.findIndex((end) => x - end >= 27));
+    laneEnd[lane] = x;
+    const cy = 20 + lane * 26;
     const sel = mo.id === state.selected;
-    svg("line", { x1: x, y1: 30, x2: x, y2: base, stroke: colorOf(mo.side), "stroke-opacity": sel ? 0.9 : 0.35, "stroke-dasharray": "2 3" }, root);
+    svg("line", { x1: x, y1: cy, x2: x, y2: base, stroke: colorOf(mo.side), "stroke-opacity": sel ? 0.9 : 0.35, "stroke-dasharray": "2 3" }, root);
     const g = svg("g", { class: "marker", tabindex: 0, role: "button", "aria-label": `${mo.title} at ${mo.facts.minute}`,
       "aria-pressed": sel }, root);
-    svg("circle", { class: "hit", cx: x, cy: 20, r: 12, fill: "var(--surface)", stroke: colorOf(mo.side), "stroke-width": sel ? 3 : 1.5 }, g);
-    svg("text", { x, y: 24, "text-anchor": "middle", "font-weight": 700, style: "fill:var(--text)" }, g, MARK[mo.type] || "•");
+    svg("circle", { class: "hit", cx: x, cy, r: 11, fill: "var(--surface)", stroke: colorOf(mo.side), "stroke-width": sel ? 3 : 1.5 }, g);
+    svg("text", { x, y: cy + 4, "text-anchor": "middle", "font-weight": 700, style: "fill:var(--text)" }, g, MARK[mo.type] || "•");
     svg("title", {}, g, `${mo.facts.minute} ${mo.title}`);
     g.addEventListener("click", () => select(mo.id));
     g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(mo.id); } });
@@ -381,8 +400,10 @@ function renderXG() {
   const max = Math.max(1, Math.ceil(Math.max(last.home, last.away) * 2) / 2);
   const x = (min) => L + (min / 92) * (W - L - 54);
   const y = (v) => B - (v / max) * (B - T);
-  const ticks = [0, max / 2, max].map((v) => ({ value: v, pos: B - y(v) }));
-  axes(root, W, H, L, B, ticks, (v) => v.toFixed(1));
+  const step = max > 2.5 ? 1 : 0.5;  // round tick values (0, 1, 2, 3), not halves of an odd maximum
+  const ticks = [];
+  for (let v = 0; v <= max + 1e-9; v += step) ticks.push({ value: v, pos: B - y(v) });
+  axes(root, W, H, L, B, ticks, (v) => v.toFixed(v % 1 ? 1 : 0));
   for (const t of [0, 45, 90]) svg("text", { x: x(t), y: 160, "text-anchor": "middle" }, root, `${t}'`);
   for (const side of ["home", "away"]) {
     const pts = m.xg.map((p) => `${x(p.minute)},${y(p[side])}`).join(" ");
@@ -401,10 +422,18 @@ function renderPossession() {
   const m = state.match, W = 460, L = 34, B = 142, T = 12;
   const n = m.possession.length, bw = (W - L - 8) / n - 3;
   axes(root, W, 170, L, B, [0, 50, 100].map((v) => ({ value: v, pos: (v / 100) * (B - T) })), (v) => `${v}%`);
+  $("poss-note").textContent = `Share of passes in each 5-minute window: ${m.home.name} (blue, bottom) and ${m.away.name} (orange, top). A grey dashed cell means no passes were recorded in that window.`;
   m.possession.forEach((w, i) => {
-    const x = L + i * ((W - L - 8) / n) + 1.5, hh = (w.home / 100) * (B - T);
-    svg("rect", { x, y: B - hh, width: bw, height: hh, fill: m.home.color, "fill-opacity": 0.85 }, root);
-    svg("rect", { x, y: T, width: bw, height: B - T - hh, fill: m.away.color, "fill-opacity": 0.85 }, root);
+    const x = L + i * ((W - L - 8) / n) + 1.5;
+    if (w.home === null) {  // no passes at all: say so instead of drawing an invented 50/50
+      const r = svg("rect", { x, y: T, width: bw, height: B - T, fill: "none", stroke: NEUTRAL_COLOR, "stroke-dasharray": "3 3" }, root);
+      svg("title", {}, r, `${w.start}'–${w.end}': no passes recorded`);
+    } else {
+      const hh = (w.home / 100) * (B - T);
+      const bar = svg("rect", { x, y: B - hh, width: bw, height: hh, fill: m.home.color, "fill-opacity": 0.85 }, root);
+      svg("title", {}, bar, `${w.start}'–${w.end}': ${m.home.short} ${w.home}% – ${w.away}% ${m.away.short}`);
+      svg("rect", { x, y: T, width: bw, height: B - T - hh, fill: m.away.color, "fill-opacity": 0.85 }, root);
+    }
     if (i % 3 === 0) svg("text", { x: x + bw / 2, y: 160, "text-anchor": "middle" }, root, `${w.start}'`);
   });
 }
@@ -497,7 +526,7 @@ function verificationBadge(v) {
   const parts = [`Verifier: ${v.claims_checked} claims checked, ${issues.length} issue${issues.length === 1 ? "" : "s"}`,
     `Numeric guard: ${num.checked} figures, ${num.unverified.length ? `not traced to data: ${num.unverified.join(", ")}` : "all traced to data"}`];
   const box = html("div", { class: `verify ${clean ? "ok" : "warn"}` }, [
-    html("b", { text: clean ? "Verified against the data" : "Check these figures" }),
+    html("b", { text: clean ? "Verified against the data" : "Needs a check" }),
     ...parts.map((p) => html("span", { text: p })),
     ...issues.map((i) => html("span", { text: `• ${i}` })),
   ]);
@@ -513,7 +542,8 @@ function renderResult(r) {
   if (badge) box.append(badge);
   if (r.stat_chips?.length) {
     box.append(html("div", { class: "chips" }, r.stat_chips.map((c) =>
-      html("div", { class: "statchip" }, [html("b", { text: String(c.value) }), html("span", { text: String(c.label) })]))));
+      html("div", { class: "statchip" }, [html("b", { text: String(c.value) }), html("span", { text: String(c.label) }),
+        ...(c.detail ? [html("small", { text: c.detail })] : [])]))));
   }
   if (r.findings?.length) {
     box.append(html("details", {}, [html("summary", { text: "Grounded findings (from the data)" }),

@@ -37,10 +37,19 @@ StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)     
   match-winning...) from the score line. Early on, a spotlight called an equaliser "the winning goal" and the
   Verifier approved it, so the role is now handed to the agents as a fact and the Verifier checks against it.
 - **Broadcast view.** For the current selection (a moment, a player or the whole match) the agents also write an
-  on-screen lower third: a news-style title, one on-air sentence and three figures, drawn over the replay with a
-  scorebug, a tag, a win-probability bar and a verification mark. The *Narrator* writes the graphic, so the
-  Verifier and the numeric guard check it like any other text; the Localiser translates it. Deep link:
-  `/?moment=m7&broadcast=1`. An incomplete graphic is never cached.
+  on-screen lower third: a news-style title and one on-air sentence, drawn over the replay with a scorebug, a tag,
+  a win-probability bar and a verification mark. The *Narrator* writes the text, so the Verifier and the checks
+  below cover it like any other text; the Localiser translates it. Deep link: `/?moment=m7&broadcast=1`.
+  An incomplete graphic is never cached.
+- **The figures on screen are computed, not written by the model** (`app/chips.py`). The three cards in the
+  graphic and the key figures in the result panel come from the data, always name the teams and show both sides
+  of a comparison ("63% – 37%", "NOR – EAS"; "20% → 67%", "EAS"). They depend on the role (a goalkeeper gets
+  saves, not zero goals) and only their labels are translated. This replaced model-chosen cards after one read
+  "63% Possession" with no team and "24 Shots" for one side only.
+- **Wording checks the numbers cannot see.** A chaotic spell belongs to both teams, so any short field (headline,
+  graphic title or line, explanation) that names only one of them is flagged and shows as "Needs a check". On the
+  first recording 4 of 5 chaotic-spell results failed this check, the Verifier having approved them all; prompts
+  alone did not fix it (the Portuguese text kept reframing it), the check plus re-recording did.
 - **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
 - **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
   event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture

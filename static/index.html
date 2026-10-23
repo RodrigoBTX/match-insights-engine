@@ -42,7 +42,8 @@
         <h2>Momentum &amp; key moments</h2>
         <span class="hint">Select a marker to inspect and explain it</span>
       </div>
-      <svg id="momentum" viewBox="0 0 960 190" role="img" aria-label="Momentum timeline"></svg>
+      <svg id="momentum" viewBox="0 0 960 218" role="img" aria-label="Momentum timeline"></svg>
+      <p class="hint note" id="momentum-note"></p>
       <div id="moments" class="moments"></div>
     </div>
 
@@ -71,10 +72,12 @@
       <div class="card">
         <div class="card-head"><h2>Cumulative xG</h2></div>
         <svg id="xg" viewBox="0 0 460 170" role="img" aria-label="Cumulative expected goals"></svg>
+        <p class="hint note">Running total of the quality of each team's shots (xG). A white dot marks a goal.</p>
       </div>
       <div class="card">
         <div class="card-head"><h2>Possession by 5 minutes</h2></div>
         <svg id="poss" viewBox="0 0 460 170" role="img" aria-label="Possession share"></svg>
+        <p class="hint note" id="poss-note"></p>
       </div>
     </div>
   </section>
@@ -113,8 +116,9 @@
   <div class="stage-wrap">
     <button id="stage-close" class="ghost" type="button">Close (Esc)</button>
     <div class="stage" id="stage" role="dialog" aria-label="Broadcast graphic">
-      <svg id="stage-pitch" viewBox="-3 -3 111 74" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+      <svg id="stage-pitch" viewBox="-3 -3 111 74" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
       <div class="bug" id="bug"></div>
+      <div class="stage-legend" id="stage-legend"></div>
       <div class="lower" id="lower"></div>
     </div>
   </div>

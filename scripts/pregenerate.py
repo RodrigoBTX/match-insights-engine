@@ -44,6 +44,7 @@ async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=0, help="only the first N targets")
     parser.add_argument("--force", action="store_true", help="re-record even clean entries")
+    parser.add_argument("--moment", default="", help="only this moment id (e.g. m3); with --force re-records it")
     args = parser.parse_args()
 
     match_id = demo.DEMO_MATCH_ID
@@ -57,6 +58,8 @@ async def main() -> int:
 
     todo = []
     for mid, pid, aud, lang in build_targets(match, moments):
+        if args.moment and mid != args.moment:
+            continue
         key = demo.entry_key(match_id, mid, pid, aud, lang)
         if args.force or key not in entries or not demo.is_clean(entries[key], aud):
             todo.append((key, mid, pid, aud, lang))

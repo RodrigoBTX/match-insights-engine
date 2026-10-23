@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analytics as an
+from . import chips as chips_mod
 from . import demo
 from . import players as pl
 from .adapters import from_opta_f24, from_statsbomb
@@ -170,6 +171,23 @@ def cacheable(req: ExplainRequest, result: dict) -> bool:
     return req.audience != "broadcaster" or bool(result.get("graphic"))
 
 
+def finalize(result: dict, match: Match, moment: dict | None, player: dict | None, language: str, **flags) -> dict:
+    """Put the computed key figures on a result before it is served.
+
+    The agents write the text; the figures on screen (panel cards and the graphic's three cards) come from the
+    data, with team names and both sides of every comparison. Applying them here, rather than when the agents
+    run, also corrects results that were recorded or cached earlier.
+    """
+    out = {**result, **flags}
+    shown = (out.get("fallback") or {}).get("shown", {}).get("language", language)
+    chips = chips_mod.build_chips(match, moment, player, shown)
+    if chips:
+        out["stat_chips"] = chips
+        if out.get("graphic"):
+            out["graphic"] = {**out["graphic"], "chips": chips}
+    return out
+
+
 def recorded_fallback(key: tuple, reason: str) -> dict | None:
     """The nearest recording when live agents cannot run, labelled so the UI never passes it off as live."""
     fb = demo.pick_fallback(RECORDED, key)
@@ -192,13 +210,13 @@ def unavailable_message(key: tuple, reason: str) -> str:
 async def explain(req: ExplainRequest) -> dict:
     match, moment, player, key = resolve(req)
     if key in CACHE:
-        return {**CACHE[key], "cached": True}
+        return finalize(CACHE[key], match, moment, player, req.language, cached=True)
     if DEMO_ONLY:
         reason = "demo-only mode"
         result = recorded_fallback(key, reason)
         if result is None:
             raise HTTPException(503, unavailable_message(key, reason))
-        return result
+        return finalize(result, match, moment, player, req.language)
     for attempt in (1, 2):
         try:
             result = await run_explain(match, moment, MOMENTS[req.match_id], req.audience, req.language, player)
@@ -213,12 +231,12 @@ async def explain(req: ExplainRequest) -> dict:
                 fallback = recorded_fallback(key, reason)
                 if fallback is None:
                     raise HTTPException(503, unavailable_message(key, reason)) from exc
-                return fallback
+                return finalize(fallback, match, moment, player, req.language)
             raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
     STATE["live"] = True
     if cacheable(req, result):
         CACHE[key] = result
-    return {**result, "cached": False}
+    return finalize(result, match, moment, player, req.language, cached=False)
 
 
 @app.post("/api/explain/stream")
@@ -230,11 +248,13 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
         result = recorded_fallback(key, reason)
         if result is None:
             return json.dumps({"event": "error", "message": unavailable_message(key, reason)}) + "\n"
-        return json.dumps({"event": "result", "result": result}) + "\n"
+        return json.dumps({"event": "result",
+                           "result": finalize(result, match, moment, player, req.language)}) + "\n"
 
     async def lines():
         if key in CACHE:
-            yield json.dumps({"event": "result", "result": {**CACHE[key], "cached": True}}) + "\n"
+            res = finalize(CACHE[key], match, moment, player, req.language, cached=True)
+            yield json.dumps({"event": "result", "result": res}) + "\n"
             return
         if DEMO_ONLY:
             yield fallback_events("demo-only mode")
@@ -246,7 +266,8 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
                         STATE["live"] = True
                         if cacheable(req, ev["result"]):
                             CACHE[key] = ev["result"]
-                        ev = {"event": "result", "result": {**ev["result"], "cached": False}}
+                        ev = {"event": "result",
+                              "result": finalize(ev["result"], match, moment, player, req.language, cached=False)}
                     yield json.dumps(ev) + "\n"
                 return
             except Exception as exc:

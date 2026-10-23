@@ -28,6 +28,21 @@ def allowed_numbers(*sources: str) -> list[float]:
     return allowed
 
 
+def framing_issues(event: str | None, text: str, teams: list[tuple[str, ...]]) -> list[str]:
+    """Wording checks the numbers cannot see.
+
+    A chaotic spell is a loss of control by both teams. Text that names exactly one of them (as "Northbridge ramps
+    up possession") frames it as that team imposing itself, which the data does not say; the numeric guard and the
+    Verifier both let such text through. Naming both teams, or neither, is fine.
+    """
+    if event != "chaotic_spell":
+        return []
+    named = [any(alias and alias in text for alias in aliases) for aliases in teams]
+    if sum(named) == 1:
+        return ["A chaotic spell concerns both teams, but the text names only one of them."]
+    return []
+
+
 def numeric_check(text: str, allowed: list[float]) -> dict:
     checked, unverified = 0, []
     for token in NUM.findall(text):

@@ -102,8 +102,9 @@ def possession_windows(match: Match, size: int = 5) -> list[dict]:
             {
                 "start": w * size,
                 "end": (w + 1) * size,
-                "home": round(100 * c["home"] / tot) if tot else 50,
-                "away": round(100 * c["away"] / tot) if tot else 50,
+                # a window without a single pass has no possession figure: None, not an invented 50/50
+                "home": round(100 * c["home"] / tot) if tot else None,
+                "away": round(100 * c["away"] / tot) if tot else None,
             }
         )
     return out

@@ -27,5 +27,12 @@ def test_numeric_guard_sees_the_graphic_text():
     assert "0.91" in numeric_check(narrated_text(bad), allowed)["unverified"]
 
 
-def test_rule_asks_for_exactly_three_chips_and_only_known_figures():
-    assert "exactly 3 chips" in GRAPHIC_RULE and "only figures that appear in the conversation" in GRAPHIC_RULE
+def test_rule_asks_for_text_only_because_the_cards_are_computed():
+    assert "Do not write stat cards" in GRAPHIC_RULE and "computed from the data" in GRAPHIC_RULE
+    assert "only figures that appear in the conversation" in GRAPHIC_RULE
+    assert '"chips"' not in GRAPHIC_RULE  # the model must not be asked for cards any more
+
+
+def test_a_graphic_without_cards_is_valid_and_gets_them_later():
+    g = normalize_graphic({"title": "Penn levels it", "line": "Oskar Penn heads home to make it 1-1."})
+    assert g == {"title": "Penn levels it", "line": "Oskar Penn heads home to make it 1-1.", "chips": []}

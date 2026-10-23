@@ -3676,228 +3676,60 @@
    "audience": "broadcaster",
    "language": "en",
    "result": {
-    "headline": "Northbridge FC Cranks Up Pressure But Can't Find Equalizer",
-    "explanation": "From the 35th to 45th minute, Northbridge FC surged in possession and shots, doubling sequences per minute and dominating field control. However, this intense spell saw turnovers spike and fewer passes per sequence, reflecting a chaotic phase that ultimately didn't alter the 0-1 scoreline against Eastport United.",
-    "tactical_takeaway": "Aggressive pressing and increased tempo can create chances, but maintaining composure and possession is key to converting pressure into goals.",
+    "headline": "Chaos at the 35th Minute: Northbridge Rattles Eastport's Defense",
+    "explanation": "Between minutes 35 and 45, a chaotic spell unfolded that saw Northbridge FC ramp up their presence on the pitch. Possession swung in their favor with 56%, field tilt surged to 67%, and their attacking threat intensified, producing 5 shots and an expected goals (xG) value of 0.71, a stark contrast to Eastport United’s 1 shot and 0.07 xG. The pace quickened with sequences per minute almost doubling to 5.6, while average passes per sequence dropped to 3, reflecting quicker, less patient play. Despite this pressure, the score remained 0-1 in Eastport’s favor.",
+    "tactical_takeaway": "Northbridge FC need to capitalize on these high-intensity spells with better finishing and decision-making, while Eastport United must tighten their defense during periods of chaotic pressure.",
     "stat_chips": [
      {
-      "label": "Sequences per Minute (Before Spell)",
-      "value": "2.9"
+      "label": "Possession (Northbridge FC) %",
+      "value": "56"
      },
      {
-      "label": "Sequences per Minute (During Spell)",
+      "label": "Field Tilt (Northbridge FC) %",
+      "value": "67"
+     },
+     {
+      "label": "Sequences per Minute (both teams)",
       "value": "5.6"
      },
      {
-      "label": "Average Passes per Sequence (Before Spell)",
-      "value": "5.0"
-     },
-     {
-      "label": "Average Passes per Sequence (During Spell)",
+      "label": "Average Passes per Sequence",
       "value": "3.0"
      },
      {
-      "label": "Turnovers per Minute (During Spell)",
+      "label": "Turnovers per Minute",
       "value": "4.5"
      }
     ],
     "graphic": {
-     "title": "Pressure Shift: Northbridge FC's Chaotic 10 Minutes",
-     "line": "Northbridge ramps possession from 45% to 56%, doubles shot count but sees turnovers rise sharply.",
-     "chips": [
-      {
-       "label": "Possession % Before Spell",
-       "value": "45"
-      },
-      {
-       "label": "Possession % During Spell",
-       "value": "56"
-      },
-      {
-       "label": "Shots Before Spell",
-       "value": "1"
-      }
-     ]
+     "title": "Crazy Ten Minutes – Team Lose Control",
+     "line": "Turnovers doubled and possession rapidly shifted between teams during this chaotic spell",
+     "chips": []
     },
     "findings": [
-     "Between 35' and 45', Northbridge FC and Eastport United entered a chaotic spell with increased sequences per minute (5.6) compared to the previous 10 minutes (2.9).",
-     "During the spell, both teams' average passes per sequence dropped sharply to 3.0 from 5.0, indicating rushed play and loss of control.",
-     "Turnovers per minute doubled during the spell (4.5) versus before (2.3), reflecting instability in possession for both sides.",
-     "Northbridge FC increased possession to 56% and dominated field tilt at 67%, reversing previous trends.",
-     "Despite the chaos, this phase aligned with the match context where Northbridge FC pushed aggressively but still trailed Eastport United 0-1."
+     "Between minutes 35 and 45, a chaotic spell occurred involving both Northbridge FC and Eastport United.",
+     "Northbridge FC gained more possession (56%) and field tilt (67%) during the spell compared to the previous ten minutes when Eastport United dominated both metrics.",
+     "Sequences per minute almost doubled from 2.9 before the spell to 5.6 during, while average passes per sequence dropped from 5.0 to 3.0, indicating a frenetic pace but less passing control.",
+     "Turnovers per minute also surged from 2.3 to 4.5, showing loss of control by both teams.",
+     "Northbridge FC generated significantly more shots (5 vs 1) and xG (0.71 vs 0.07) in this period, showing a strong attacking burst that aligned with the chaotic play, though the score remained 0-1 in favor of Eastport United."
     ],
     "verification": {
      "verdict": "verified",
-     "claims_checked": 9,
+     "claims_checked": 6,
      "issues": [],
      "numeric_check": {
-      "checked": 9,
+      "checked": 12,
       "unverified": []
      }
     },
     "trace": [
      {
       "agent": "Analyst",
-      "seconds": 3.3
+      "seconds": 3.9
      },
      {
       "agent": "Narrator",
-      "seconds": 3.1
-     },
-     {
-      "agent": "Verifier",
-      "seconds": 1.1
-     },
-     {
-      "agent": "Localiser",
-      "seconds": 4.7
-     }
-    ]
-   }
-  },
-  {
-   "match_id": "synthetic-7",
-   "moment_id": "m3",
-   "player_id": null,
-   "audience": "broadcaster",
-   "language": "pt",
-   "result": {
-    "headline": "Northbridge FC aumenta pressão num período caótico entre os minutos 35 e 45",
-    "explanation": "Entre os minutos 35 e 45, a Northbridge FC dominou a posse de bola com 56%, enquanto a Eastport United caiu para 44%. A equipa da casa também conquistou 67% dos passes no terço final do campo, aumentando a sua presença ofensiva. Durante este período, o ritmo do jogo acelerou consideravelmente, com o número de sequências por minuto passando de 2.9 para 5.6, embora a média de passes por sequência tenha diminuído de 5.0 para 3.0, e as perdas de bola quase duplicaram. A Northbridge FC disparou cinco remates contra apenas um da equipa visitante, acumulando um expected goals (xG) de 0.71 contra 0.07 da Eastport United. Apesar desta pressão alta, o placar permaneceu 0-1 a favor da equipa visitante.",
-    "tactical_takeaway": "A pressão alta e o ritmo acelerado permitiram à Northbridge FC dominar o jogo por dez minutos, criando mais oportunidades e obrigando o adversário a recuar.",
-    "stat_chips": [
-     {
-      "label": "Posse de bola (35-45 min)",
-      "value": "Northbridge FC 56%, Eastport United 44%"
-     },
-     {
-      "label": "Inclinação de campo em passes no terço final",
-      "value": "Northbridge FC 67%, Eastport United 33%"
-     },
-     {
-      "label": "Sequências por minuto",
-      "value": "Antes: 2.9, Durante: 5.6"
-     },
-     {
-      "label": "Média de passes por sequência",
-      "value": "Antes: 5.0, Durante: 3.0"
-     },
-     {
-      "label": "Perdas de bola por minuto",
-      "value": "Antes: 2.3, Durante: 4.5"
-     }
-    ],
-    "graphic": {
-     "title": "Domínio da Northbridge FC (35-45 min)",
-     "line": "Remates e posse de bola elevadas durante período de pressão alta.",
-     "chips": [
-      {
-       "label": "Posse de bola",
-       "value": "56%"
-      },
-      {
-       "label": "Remates",
-       "value": "5"
-      },
-      {
-       "label": "Sequências por minuto",
-       "value": "5.6"
-      }
-     ]
-    },
-    "findings": [
-     "Entre os minutos 35 e 45, houve um período caótico envolvendo ambas as equipas.",
-     "A posse de bola passou para a Northbridge FC (56%) enquanto a Eastport United caiu para 44%.",
-     "O campo esteve mais inclinado para a Northbridge FC com 67% dos passes no terço final contra 33% da Eastport.",
-     "Durante este período, o número de sequências por minuto quase duplicou (5.6 vs 2.9) e as perdas de bola também aumentaram (4.5 vs 2.3).",
-     "A Northbridge FC disparou 5 vezes contra apenas 1 da Eastport United, acumulando um xG de 0.71 em comparação com 0.07."
-    ],
-    "verification": {
-     "verdict": "verified",
-     "claims_checked": 7,
-     "issues": [],
-     "numeric_check": {
-      "checked": 23,
-      "unverified": []
-     }
-    },
-    "trace": [
-     {
-      "agent": "Analyst",
-      "seconds": 4.8
-     },
-     {
-      "agent": "Narrator",
-      "seconds": 2.9
-     },
-     {
-      "agent": "Verifier",
-      "seconds": 1.1
-     },
-     {
-      "agent": "Localiser",
-      "seconds": 5.2
-     }
-    ]
-   }
-  },
-  {
-   "match_id": "synthetic-7",
-   "moment_id": "m3",
-   "player_id": null,
-   "audience": "casual_fan",
-   "language": "en",
-   "result": {
-    "headline": "Northbridge FC Turns Up the Heat in Final 10 Minutes Before Half-Time",
-    "explanation": "From the 35th to the 45th minute, Northbridge FC took control of the game, gaining more possession and pushing forward much more aggressively than earlier. They completed fewer passes per sequence but increased the pace with more sequences and turnovers happening every minute, creating five shots compared to Eastport’s one, but the score remained 0-1 at half-time.",
-    "tactical_takeaway": "When behind, increasing pressure and playing more dynamically in short bursts can create scoring chances and shift momentum.",
-    "stat_chips": [
-     {
-      "label": "Possession during chaotic spell",
-      "value": "Northbridge FC 56%, Eastport United 44%"
-     },
-     {
-      "label": "Field tilt (final third passes)",
-      "value": "Northbridge FC 67%, Eastport United 33%"
-     },
-     {
-      "label": "Sequences per minute",
-      "value": "5.6 during spell vs. 2.9 before"
-     },
-     {
-      "label": "Avg passes per sequence",
-      "value": "3.0 during spell vs. 5.0 before"
-     },
-     {
-      "label": "Turnovers per minute",
-      "value": "4.5 during spell vs. 2.3 before"
-     }
-    ],
-    "graphic": null,
-    "findings": [
-     "Between minutes 35 and 45, there was a chaotic spell involving both Northbridge FC and Eastport United.",
-     "During this period, possession shifted to Northbridge FC (56%) from Eastport United's previous 55%.",
-     "Northbridge FC also increased their share of final-third passes to 67%, compared to Eastport United's previous 65%.",
-     "Both teams saw a large increase in sequences per minute (5.6 vs. 2.9 before) and turnovers per minute (4.5 vs. 2.3 before), while the average passes per sequence dropped (3.0 vs. 5.0 before).",
-     "This spell went with the run of play as Northbridge FC took more control and generated more shots (5 vs. 1 previously)."
-    ],
-    "verification": {
-     "verdict": "verified",
-     "claims_checked": 7,
-     "issues": [],
-     "numeric_check": {
-      "checked": 10,
-      "unverified": []
-     }
-    },
-    "trace": [
-     {
-      "agent": "Analyst",
-      "seconds": 4.5
-     },
-     {
-      "agent": "Narrator",
-      "seconds": 1.9
+      "seconds": 2.4
      },
      {
       "agent": "Verifier",
@@ -3914,59 +3746,63 @@
    "match_id": "synthetic-7",
    "moment_id": "m3",
    "player_id": null,
-   "audience": "casual_fan",
+   "audience": "broadcaster",
    "language": "pt",
    "result": {
-    "headline": "Virada no ritmo e domínio do jogo entre os minutos 35 e 45",
-    "explanation": "No período entre os minutos 35 e 45, o Northbridge FC assumiu o controlo do jogo, invertendo a posse de bola a seu favor e criando bastante pressão no ataque. O jogo tornou-se muito mais rápido e intenso, com muitas perdas de bola de parte a parte, refletindo um momento caótico em que ambos os times tentaram atacar. Apesar disso, o marcador manteve-se em 0-1.",
-    "tactical_takeaway": "Este momento mostra que uma equipa pode dominar a posse e criar chances, mas sem conseguir marcar, ressaltando a importância de manter a concentração e aproveitar as oportunidades criadas.",
+    "headline": "Período caótico altera domínio das equipas entre os minutos 35 e 45",
+    "explanation": "Durante este intervalo, Northbridge FC conseguiu inverter a posse de bola para 56%, contra 44% de Eastport United, mostrando um domínio maior no campo. O campo ficou mais inclinado para o Northbridge FC com 67% do jogo avançando pelo seu lado, contra 33% da equipa visitante. O número de sequências por minuto quase duplicou, aumentando para 5,6, porém a média de passes por sequência diminuiu para 3, evidenciando um jogo mais direto e menos controlado. Além disso, houve quase o dobro de turnovers por minuto, passando para 4,5, indicando uma maior instabilidade na posse durante este período caótico.",
+    "tactical_takeaway": "Este período caótico destaca como ambas as equipas enfrentaram dificuldades em manter o controlo da posse, com Northbridge FC a aproveitar para dominar mas com muita perda de bola e rapidez no jogo.",
     "stat_chips": [
      {
-      "label": "Posse de bola Northbridge FC (%)",
-      "value": "56"
+      "label": "Posse de bola (%)",
+      "value": "Northbridge FC 56, Eastport United 44"
      },
      {
-      "label": "Posse de bola Eastport United (%)",
-      "value": "44"
+      "label": "Inclinação do campo (%)",
+      "value": "Northbridge FC 67, Eastport United 33"
      },
      {
       "label": "Sequências por minuto",
-      "value": "5.6"
+      "value": "5,6 durante o período vs 2,9 antes"
      },
      {
-      "label": "Passe médio por sequência",
-      "value": "3.0"
+      "label": "Passes por sequência",
+      "value": "3,0 durante o período vs 5,0 antes"
      },
      {
-      "label": "Perdas de bola por minuto",
-      "value": "4.5"
+      "label": "Turnovers por minuto",
+      "value": "4,5 durante o período vs 2,3 antes"
      }
     ],
-    "graphic": null,
+    "graphic": {
+     "title": "Período caótico entre 35' e 45'",
+     "line": "Posse, inclinação do campo e sequências alteram-se drasticamente neste período.",
+     "chips": []
+    },
     "findings": [
      "Entre os minutos 35 e 45, houve um período caótico no jogo entre Northbridge FC e Eastport United.",
-     "Durante este período, Northbridge FC teve 56% de posse de bola, invertendo a posse do período anterior em que a Eastport United dominava com 55%.",
-     "O número de sequências por minuto quase dobrou para 5.6, enquanto a média de passes por sequência caiu de 5.0 para 3.0, indicando um ritmo de jogo muito mais frenético e menos controlado.",
-     "As turnovers aumentaram significativamente, de 2.3 para 4.5 por minuto, para ambos os times.",
-     "Northbridge FC disparou 5 vezes em direção ao gol com um xG de 0.71, contrastando com apenas 1 tiro e xG de 0.07 da Eastport United neste período."
+     "Durante esse período, Northbridge FC aumentou a sua posse de bola para 56%, invertendo a tendência inicial.",
+     "O campo ficou mais inclinado para Northbridge FC com 67% dos passes no último terço, contra 33% de Eastport United.",
+     "O número de sequências por minuto praticamente dobrou para 5.6, mas a média de passes por sequência diminuiu para 3, mostrando perda de controle por ambas as equipes.",
+     "O número de turnovers por minuto quase dobrou para 4.5, evidenciando maior instabilidade na posse de bola durante este período."
     ],
     "verification": {
      "verdict": "verified",
-     "claims_checked": 4,
+     "claims_checked": 5,
      "issues": [],
      "numeric_check": {
-      "checked": 8,
+      "checked": 18,
       "unverified": []
      }
     },
     "trace": [
      {
       "agent": "Analyst",
-      "seconds": 3.7
+      "seconds": 3.0
      },
      {
       "agent": "Narrator",
-      "seconds": 3.1
+      "seconds": 2.9
      },
      {
       "agent": "Verifier",
@@ -3974,7 +3810,145 @@
      },
      {
       "agent": "Localiser",
-      "seconds": 3.6
+      "seconds": 5.8
+     }
+    ]
+   }
+  },
+  {
+   "match_id": "synthetic-7",
+   "moment_id": "m3",
+   "player_id": null,
+   "audience": "casual_fan",
+   "language": "en",
+   "result": {
+    "headline": "A Chaotic 10 Minutes of Back-and-Forth Action",
+    "explanation": "From minutes 35 to 45, both Northbridge FC and Eastport United played with a lot of energy but less control. Northbridge FC managed to control the ball more, boosting their possession from 45% to 56%. However, both teams rushed their attacks, making fewer passes per attempt and turning the ball over more often, leading to a hectic and exciting phase of the game.",
+    "tactical_takeaway": "Teams should focus on keeping the ball and slowing down play to avoid giving away chances in such chaotic moments.",
+    "stat_chips": [
+     {
+      "label": "Northbridge FC possession before spell",
+      "value": "45%"
+     },
+     {
+      "label": "Northbridge FC possession during spell",
+      "value": "56%"
+     },
+     {
+      "label": "Sequences per minute before spell",
+      "value": "2.9"
+     },
+     {
+      "label": "Sequences per minute during spell",
+      "value": "5.6"
+     },
+     {
+      "label": "Turnovers per minute during spell",
+      "value": "4.5"
+     }
+    ],
+    "graphic": null,
+    "findings": [
+     "From minutes 35 to 45, Northbridge FC and Eastport United entered a chaotic spell with rapid, less controlled play.",
+     "During this spell, Northbridge FC increased possession to 56% compared to 45% in the previous 10 minutes.",
+     "Field tilt heavily favored Northbridge FC at 67% final-third passes during the spell, up from 35% before.",
+     "Sequences per minute nearly doubled to 5.6, while average passes per sequence dropped to 3.0, showing quicker, less precise attacks.",
+     "Turnovers per minute also doubled to 4.5, indicating both teams lost the ball more frequently."
+    ],
+    "verification": {
+     "verdict": "verified",
+     "claims_checked": 7,
+     "issues": [],
+     "numeric_check": {
+      "checked": 9,
+      "unverified": []
+     }
+    },
+    "trace": [
+     {
+      "agent": "Analyst",
+      "seconds": 3.2
+     },
+     {
+      "agent": "Narrator",
+      "seconds": 2.7
+     },
+     {
+      "agent": "Verifier",
+      "seconds": 1.2
+     },
+     {
+      "agent": "Localiser",
+      "seconds": 3.2
+     }
+    ]
+   }
+  },
+  {
+   "match_id": "synthetic-7",
+   "moment_id": "m3",
+   "player_id": null,
+   "audience": "casual_fan",
+   "language": "pt",
+   "result": {
+    "headline": "Um período caótico entre Northbridge FC e Eastport United entre os minutos 35 e 45",
+    "explanation": "Durante os minutos 35 a 45, ambas as equipas viveram um período caótico no jogo. Antes desta fase, o Eastport United dominava a posse de bola com 55% e criava mais oportunidades, enquanto o Northbridge FC tinha menos controlo. Porém, durante este período intenso, o Northbridge FC assumiu o controlo com 56% da posse e mais remates, aproximando-se da baliza adversária com maior frequência. Este momento ficou marcado por um jogo mais rápido, com quase o dobro das sequências de jogo por minuto, passes mais curtos e um aumento significativo nas perdas de bola, mostrando o ritmo acelerado e desequilibrado do jogo.",
+    "tactical_takeaway": "Este intervalo mostrou que um aumento na pressão e intensidade muda rapidamente quem domina o jogo, com ambos os times lutando para ganhar controlo e criar oportunidades num ritmo frenético.",
+    "stat_chips": [
+     {
+      "label": "Posse de bola antes do caos",
+      "value": "Northbridge FC 45%, Eastport United 55%"
+     },
+     {
+      "label": "Posse de bola durante o caos",
+      "value": "Northbridge FC 56%, Eastport United 44%"
+     },
+     {
+      "label": "Expectativa de golo (xG) antes do caos",
+      "value": "Northbridge FC 0.02, Eastport United 0.79"
+     },
+     {
+      "label": "Sequências por minuto",
+      "value": "Antes: 2.9, Durante: 5.6"
+     },
+     {
+      "label": "Passes médios por sequência",
+      "value": "Antes: 5.0, Durante: 3.0"
+     }
+    ],
+    "graphic": null,
+    "findings": [
+     "Entre os minutos 35 e 45, tanto Northbridge FC como Eastport United entraram num período caótico durante o jogo.",
+     "Antes desse momento, Eastport United tinha mais posse de bola (55%) e melhor domínio do último terço (65%), além de uma maior expectativa de gol (0.79 contra 0.02).",
+     "Durante o período de caos, Northbridge FC passou a dominar a posse (56%) e o campo ofensivo (67%), aumentando também suas finalizações e oportunidade de golo.",
+     "Este caos traduziu-se em quase o dobro das sequências de jogo e uma queda no número médio de passes por sequência, revelando mais lances rápidos e menos controle.",
+     "Ambas as equipas sofreram mais perdas de bola, com turnovers quase duplicados durante os 10 minutos caóticos."
+    ],
+    "verification": {
+     "verdict": "verified",
+     "claims_checked": 6,
+     "issues": [],
+     "numeric_check": {
+      "checked": 14,
+      "unverified": []
+     }
+    },
+    "trace": [
+     {
+      "agent": "Analyst",
+      "seconds": 3.8
+     },
+     {
+      "agent": "Narrator",
+      "seconds": 2.9
+     },
+     {
+      "agent": "Verifier",
+      "seconds": 3.1
+     },
+     {
+      "agent": "Localiser",
+      "seconds": 4.0
      }
     ]
    }
@@ -3986,49 +3960,45 @@
    "audience": "coach",
    "language": "en",
    "result": {
-    "headline": "Intense 10-Minute Spell Sees Northbridge FC Dominate Possession and Pressure",
-    "explanation": "Between the 35th and 45th minute, Northbridge FC shifted the game's momentum by increasing their possession from 45% to 56% and gaining significant field tilt, controlling 67% of final third passes. The tempo of the match doubled with sequences per minute rising from 2.9 to 5.6. However, the average passes per sequence dropped from 5.0 to 3.0, and turnovers per minute almost doubled from 2.3 to 4.5, indicating a riskier attacking approach with more frequent transitions and pressure on both sides.",
-    "tactical_takeaway": "Coach should focus on maintaining high pressing intensity and quick transitions but encourage players to improve ball control to reduce turnovers and sustain attacks more effectively during these chaotic spells.",
+    "headline": "Chaotic Spell Sees Shift in Momentum and Increased Intensity",
+    "explanation": "Between the 35th and 45th minute, Northbridge FC reversed prior trends with 56% possession and a significant field tilt of 67% into the attacking third, compared to Eastport United's 44% possession and 33% field tilt. Pressing height remained steady for both teams around 35-36 meters. The game's tempo increased sharply, with sequences per minute rising from 2.9 to 5.6, despite fewer passes per sequence (3.0 down from 5.0). Turnovers also surged to 4.5 per minute, indicating increased risk and urgency in play.",
+    "tactical_takeaway": "Coaches should prepare their teams to handle high-intensity, fast transition periods by emphasizing quick decision-making and ball retention. Maintaining composure when possession changes rapidly and adapting pressing strategies to this frenetic pace could prevent costly turnovers.",
     "stat_chips": [
      {
-      "label": "Northbridge FC Possession %",
-      "value": "56%"
+      "label": "Northbridge FC Possession (%)",
+      "value": "56"
      },
      {
-      "label": "Eastport United Possession %",
-      "value": "44%"
+      "label": "Northbridge FC Field Tilt (%)",
+      "value": "67"
      },
      {
-      "label": "Field Tilt in Final Third %",
-      "value": "67%"
-     },
-     {
-      "label": "Sequences per Minute",
+      "label": "Sequences per Minute During Spell",
       "value": "5.6"
      },
      {
-      "label": "Average Passes per Sequence",
+      "label": "Average Passes per Sequence During Spell",
       "value": "3.0"
      },
      {
-      "label": "Turnovers per Minute",
+      "label": "Turnovers per Minute During Spell",
       "value": "4.5"
      }
     ],
     "graphic": null,
     "findings": [
-     "From 35' to 45', a chaotic spell occurred involving both Northbridge FC and Eastport United.",
-     "During this spell, Northbridge FC increased possession to 56% compared to 45% in the previous 10 minutes before the spell.",
-     "Field tilt shifted substantially in favor of Northbridge FC to 67% of final-third passes, up from 35%.",
-     "Sequences per minute nearly doubled from 2.9 to 5.6, indicating a faster pace and more frequent transitions.",
-     "Average passes per sequence dropped from 5.0 to 3.0, with turnovers per minute rising from 2.3 to 4.5, highlighting loss of control and increased pressure on both teams."
+     "From minutes 35 to 45, Northbridge FC dominated possession (56%) compared to Eastport United (44%) reversing the earlier period dominance.",
+     "Northbridge FC increased their field tilt to 67% final-third passes versus Eastport United's 33%, showing more aggressive forward play.",
+     "Press height remained similar for both teams around 35.4m for Northbridge FC and 35.7m for Eastport United, indicating similar defensive lines.",
+     "Sequences per minute nearly doubled during the chaotic spell (5.6) compared to the 10 minutes prior (2.9) and rest of match average (2.95), showing faster game pace.",
+     "Average passes per sequence dropped to 3.0 from 5.0 before the spell and 5.5 in the rest of the match, indicating reduced passing length per possession and more turnovers (4.5/min vs 2.3/min prior)."
     ],
     "verification": {
      "verdict": "verified",
      "claims_checked": 7,
      "issues": [],
      "numeric_check": {
-      "checked": 14,
+      "checked": 15,
       "unverified": []
      }
     },
@@ -4039,15 +4009,15 @@
      },
      {
       "agent": "Narrator",
-      "seconds": 2.3
+      "seconds": 4.1
      },
      {
       "agent": "Verifier",
-      "seconds": 1.1
+      "seconds": 1.6
      },
      {
       "agent": "Localiser",
-      "seconds": 3.7
+      "seconds": 4.0
      }
     ]
    }
