@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Games timestamp="2026-10-01T12:00:00">
+  <Game id="9001" home_team_id="10" home_team_name="Alpha FC" away_team_id="20" away_team_name="Beta United"
+        home_score="1" away_score="0" competition_id="8" season_id="2026" matchday="1" game_date="2026-10-01T15:00:00">
+    <!-- home pass with end coordinates in qualifiers 140/141, successful -->
+    <Event id="1" event_id="1" type_id="1" period_id="1" min="3" sec="10" team_id="10" player_id="101" x="60.0" y="40.0" outcome="1" timestamp="2026-10-01T15:03:10.000">
+      <Q id="1" qualifier_id="140" value="90.0"/><Q id="2" qualifier_id="141" value="38.0"/>
+    </Event>
+    <!-- home pass, unsuccessful -->
+    <Event id="2" event_id="2" type_id="1" period_id="1" min="3" sec="14" team_id="10" player_id="102" x="90.0" y="38.0" outcome="0" timestamp="2026-10-01T15:03:14.000">
+      <Q id="3" qualifier_id="140" value="99.0"/><Q id="4" qualifier_id="141" value="40.0"/>
+    </Event>
+    <!-- away tackle wins the ball -->
+    <Event id="3" event_id="3" type_id="7" period_id="1" min="3" sec="16" team_id="20" player_id="201" x="12.0" y="55.0" outcome="1" timestamp="2026-10-01T15:03:16.000"/>
+    <!-- away pass -->
+    <Event id="4" event_id="4" type_id="1" period_id="1" min="3" sec="19" team_id="20" player_id="201" x="20.0" y="50.0" outcome="1" timestamp="2026-10-01T15:03:19.000">
+      <Q id="5" qualifier_id="140" value="45.0"/><Q id="6" qualifier_id="141" value="30.0"/>
+    </Event>
+    <!-- foul is logged twice by Opta: outcome 0 = offender, outcome 1 = fouled player -->
+    <Event id="5" event_id="5" type_id="4" period_id="1" min="20" sec="0" team_id="20" player_id="202" x="30.0" y="40.0" outcome="0" timestamp="2026-10-01T15:20:00.000"/>
+    <Event id="6" event_id="6" type_id="4" period_id="1" min="20" sec="0" team_id="10" player_id="103" x="70.0" y="60.0" outcome="1" timestamp="2026-10-01T15:20:00.000"/>
+    <!-- home corner: a pass with qualifier 6 -->
+    <Event id="7" event_id="7" type_id="1" period_id="1" min="30" sec="0" team_id="10" player_id="102" x="100.0" y="0.0" outcome="1" timestamp="2026-10-01T15:30:00.000">
+      <Q id="7" qualifier_id="6"/><Q id="8" qualifier_id="140" value="94.0"/><Q id="9" qualifier_id="141" value="45.0"/>
+    </Event>
+    <!-- home goal from the corner -->
+    <Event id="8" event_id="8" type_id="16" period_id="1" min="30" sec="4" team_id="10" player_id="103" x="94.0" y="45.0" outcome="1" timestamp="2026-10-01T15:30:04.000"/>
+    <!-- away shot saved, and the home goalkeeper's save -->
+    <Event id="9" event_id="9" type_id="15" period_id="1" min="55" sec="0" team_id="20" player_id="203" x="85.0" y="50.0" outcome="1" timestamp="2026-10-01T15:55:00.000"/>
+    <Event id="10" event_id="10" type_id="10" period_id="1" min="55" sec="1" team_id="10" player_id="100" x="3.0" y="48.0" outcome="1" timestamp="2026-10-01T15:55:01.000"/>
+    <!-- away red card (qualifier 33) -->
+    <Event id="11" event_id="11" type_id="17" period_id="2" min="70" sec="12" team_id="20" player_id="202" x="30.0" y="40.0" outcome="1" timestamp="2026-10-01T16:40:12.000">
+      <Q id="10" qualifier_id="33"/>
+    </Event>
+    <!-- own goal: must be ignored -->
+    <Event id="12" event_id="12" type_id="16" period_id="2" min="80" sec="0" team_id="20" player_id="204" x="95.0" y="50.0" outcome="1" timestamp="2026-10-01T16:50:00.000">
+      <Q id="11" qualifier_id="28"/>
+    </Event>
+    <!-- penalty shoot-out (period 5): must be ignored -->
+    <Event id="13" event_id="13" type_id="16" period_id="5" min="120" sec="0" team_id="10" player_id="103" x="88.0" y="50.0" outcome="1" timestamp="2026-10-01T17:30:00.000"/>
+  </Game>
+</Games>

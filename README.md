@@ -55,6 +55,47 @@ Open http://127.0.0.1:8000. Deep link to a moment: `/?moment=m1`.
 
 Tests: `.\.venv\Scripts\python -m pytest tests -q`
 
+## Configuration
+
+Everything model-related is in `.env` (copy `.env.example`):
+
+```
+FOUNDRY_PROJECT_ENDPOINT=https://<resource>.services.ai.azure.com/api/projects/<project>
+FOUNDRY_MODEL=<deployment name>
+```
+
+- **Another model:** deploy it in Foundry, put its deployment name in `FOUNDRY_MODEL`, restart. No code change.
+- **Another Azure account or project:** `az login` with that account, set the new endpoint, restart.
+- **Another model provider:** the client is created in one place, `client()` in `app/agents.py`.
+- All four agents share one model today; a stronger model for the Verifier only is a small change, not done.
+- Authentication is the Azure CLI credential (`az login`), which suits a local demo. A hosted deployment
+  would use a managed identity instead; that is not implemented.
+
+## Using real match data
+
+Use **Load real event feed** in the UI (or `POST /api/match/upload`). The format is detected from the content.
+
+| Format | Adapter | Status |
+|---|---|---|
+| StatsBomb-style event JSON | `from_statsbomb` | Written from the documented layout; tested on a small fixture only |
+| Opta F24 XML | `from_opta_f24` | Structure, end-coordinate qualifiers and the corner flag checked against the open-source `socceraction` parser; event type ids from a secondary source; tested on a hand-made fixture, never on a real feed |
+
+Things to know before trusting real data:
+- **Opta card qualifiers are unconfirmed.** The adapter assumes 31 = yellow, 32 = second yellow, 33 = red.
+- **F24 carries no player names and no xG** that could be confirmed: players appear as `Player <id>` and xG comes
+  from this project's distance/angle model, not from the provider.
+- Opta has no possession id, so sequences are derived (a new team on the ball, a gap over 12 s, or a ball won).
+- Windows with too little play (under 10 passes per 5 minutes) are never reported as chaotic and cannot
+  produce a tactical shift, so a sparse or gappy feed does not invent events.
+- Thresholds for chaos and tactical shifts were tuned on the synthetic match and need recalibrating on real data.
+- Extra time and shoot-outs are not modelled (the analysis assumes about 93 minutes; Opta period 5 is ignored).
+- Feeds are untrusted input: XML is parsed with `defusedxml`.
+- **The hackathon requires synthetic data**, so the demo should use the synthetic match. Do not commit real
+  match files to this repository; provider data carries its own licence terms.
+
+To support another provider, write a function that returns a `Match` (see `app/schema.py`) and call it from the
+upload endpoint in `app/main.py`.
+
 ## Layout
 
 | Path | Purpose |

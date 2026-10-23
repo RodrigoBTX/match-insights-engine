@@ -12,7 +12,9 @@ from pydantic import BaseModel
 
 from . import analytics as an
 from . import players as pl
-from .adapters import from_statsbomb
+from xml.etree.ElementTree import ParseError  # raised by defusedxml for malformed XML
+
+from .adapters import from_opta_f24, from_statsbomb
 from .agents import AUDIENCES, LANGUAGES, reset_client, run_pipeline, warm_up
 from .agents import explain as run_explain
 from .generator import generate_match
@@ -91,11 +93,15 @@ def new_synthetic(seed: int | None = None) -> dict:
 
 @app.post("/api/match/upload")
 async def upload(file: UploadFile) -> dict:
-    """Load a real event feed (StatsBomb-style JSON) through the adapter."""
+    """Load a real event feed through an adapter: Opta F24 XML or StatsBomb-style JSON, detected from the content."""
+    data = await file.read()
+    match_id = f"upload-{len(MATCHES)}"
     try:
-        raw = json.loads(await file.read())
-        match = from_statsbomb(raw, match_id=f"upload-{len(MATCHES)}")
-    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        if data.lstrip(b"\xef\xbb\xbf \r\n\t").startswith(b"<"):
+            match = from_opta_f24(data, match_id=match_id)
+        else:
+            match = from_statsbomb(json.loads(data), match_id=match_id)
+    except (ValueError, KeyError, TypeError, AttributeError, ParseError) as exc:
         raise HTTPException(422, f"Could not parse the event feed: {exc}") from exc
     return payload(register(match))
 
