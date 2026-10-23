@@ -51,12 +51,16 @@ def reset_client() -> None:
     _client = None
 
 
-def warm_up() -> None:
-    """Start `az` once at server start so the first user request does not pay the cold start."""
+def warm_up() -> bool:
+    """Start `az` once at server start so the first request does not pay the cold start.
+
+    Returns whether a token could be obtained, which is how the app knows if live agents can run here.
+    """
     try:
         AzureCliCredential(process_timeout=40).get_token("https://cognitiveservices.azure.com/.default")
+        return True
     except Exception:  # best effort: a failure here must not stop the server
-        pass
+        return False
 
 
 def parse_json(text: str) -> dict:

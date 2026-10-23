@@ -60,6 +60,33 @@ Open http://127.0.0.1:8000. Deep link to a moment: `/?moment=m1`.
 
 Tests: `.\.venv\Scripts\python -m pytest tests -q`
 
+## Running without Azure (recorded demo)
+
+The agents need an Azure sign-in and a Foundry deployment. So that anyone can still run the project, the repository
+includes `demo/explanations.json`: **79 explanations recorded earlier by the real agents** for the synthetic demo
+match (seed 7). They cover every key moment and the match recap (casual fan, coach and broadcaster in English;
+casual fan and broadcaster in Portuguese) and the six highest-impact players of each team (casual fan and
+broadcaster, English). The broadcast view works from them too.
+
+```powershell
+$env:DEMO_ONLY = "1"      # never contacts Azure (bash: DEMO_ONLY=1)
+python -m uvicorn app.main:app --port 8000
+```
+
+- Without `DEMO_ONLY` the app tries the live agents and **falls back to the recordings by itself** if Azure
+  sign-in is unavailable. The header badge says *Live agents* or *Recorded demo*, and every recorded result is
+  labelled as such. Nothing recorded is ever presented as live.
+- An unrecorded combination (for example coach in French) shows the recorded English version with a notice. A new
+  synthetic match or an uploaded feed has no recordings, so it needs the live agents and says so clearly.
+- Each recording is tied to a fingerprint of the demo match. If the generator or analytics change, the old
+  recordings are ignored rather than attached to the wrong facts. To re-record, sign in with `az login` and run
+  `python -m scripts.pregenerate` (resumable; retries until a result is verified, fully traced and, for the
+  broadcaster, has its graphic; throttled on purpose, because three parallel pipelines hit the deployment's rate limit).
+- Recordings are the best of up to four attempts, so they show the system at its best, not its average. Measuring
+  the average is a separate job.
+
+Tests: `pip install -r requirements-dev.txt`, then `python -m pytest tests -q`.
+
 ## Configuration
 
 Everything model-related is in `.env` (copy `.env.example`):

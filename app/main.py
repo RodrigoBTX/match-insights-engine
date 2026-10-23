@@ -1,9 +1,11 @@
 """FastAPI service: match data, analytics and the multi-agent explanation endpoints."""
 import asyncio
 import json
+import os
 import random
 from contextlib import asynccontextmanager
 from pathlib import Path
+from xml.etree.ElementTree import ParseError  # raised by defusedxml for malformed XML
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -11,9 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analytics as an
+from . import demo
 from . import players as pl
-from xml.etree.ElementTree import ParseError  # raised by defusedxml for malformed XML
-
 from .adapters import from_opta_f24, from_statsbomb
 from .agents import AUDIENCES, LANGUAGES, reset_client, run_pipeline, warm_up
 from .agents import explain as run_explain
@@ -22,9 +23,22 @@ from .schema import Match
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
+# DEMO_ONLY=1 never contacts Azure: only recorded explanations are shown. Without it the app tries live agents
+# and falls back to the recordings by itself when Azure sign-in is not available.
+DEMO_ONLY = os.environ.get("DEMO_ONLY") == "1"
+STATE: dict = {"live": None}  # None = not known yet, True/False once a check or a request has told us
+
+
+async def check_live() -> None:
+    STATE["live"] = await asyncio.to_thread(warm_up)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    asyncio.create_task(asyncio.to_thread(warm_up))  # in the background: do not delay startup
+    if DEMO_ONLY:
+        STATE["live"] = False
+    else:
+        asyncio.create_task(check_live())  # in the background: do not delay startup
     yield
 
 
@@ -33,6 +47,8 @@ app = FastAPI(title="Match Insights Engine", lifespan=lifespan)
 MATCHES: dict[str, Match] = {}
 MOMENTS: dict[str, list[dict]] = {}
 CACHE: dict[tuple, dict] = {}
+RECORDED: dict[tuple, dict] = {}  # explanations recorded earlier for the demo match
+DEMO_INFO: dict = {}
 
 
 def register(match: Match) -> Match:
@@ -41,7 +57,19 @@ def register(match: Match) -> Match:
     return match
 
 
+def load_demo() -> None:
+    """Make the recordings available (they are ignored if the demo match no longer matches them)."""
+    entries, info = demo.install(MATCHES[demo.DEMO_MATCH_ID], MOMENTS[demo.DEMO_MATCH_ID])
+    RECORDED.clear()
+    RECORDED.update({k: {**r, "recorded": True} for k, r in entries.items()})
+    DEMO_INFO.clear()
+    DEMO_INFO.update(info)
+    for k, r in RECORDED.items():
+        CACHE.setdefault(k, r)
+
+
 register(generate_match(7))
+load_demo()
 
 
 def get_match(match_id: str) -> Match:
@@ -78,6 +106,13 @@ def payload(match: Match) -> dict:
 @app.get("/api/config")
 def config() -> dict:
     return {"audiences": list(AUDIENCES), "languages": LANGUAGES, "matches": list(MATCHES)}
+
+
+@app.get("/api/status")
+def status() -> dict:
+    """Whether live agents can run here, and what is recorded for the demo match."""
+    return {"live": STATE["live"], "demo_only": DEMO_ONLY, "recorded": len(RECORDED),
+            "demo_match": demo.DEMO_MATCH_ID, "recordings": DEMO_INFO}
 
 
 @app.get("/api/match/{match_id}")
@@ -135,20 +170,52 @@ def cacheable(req: ExplainRequest, result: dict) -> bool:
     return req.audience != "broadcaster" or bool(result.get("graphic"))
 
 
+def recorded_fallback(key: tuple, reason: str) -> dict | None:
+    """The nearest recording when live agents cannot run, labelled so the UI never passes it off as live."""
+    fb = demo.pick_fallback(RECORDED, key)
+    if fb is None:
+        return None
+    result = {**RECORDED[fb], "cached": True, "recorded": True}
+    if fb != key:
+        result["fallback"] = {"reason": reason, "requested": {"audience": key[3], "language": key[4]},
+                              "shown": {"audience": fb[3], "language": fb[4]}}
+    return result
+
+
+def unavailable_message(key: tuple, reason: str) -> str:
+    scope = ("Recordings cover the original synthetic match only." if key[0] != demo.DEMO_MATCH_ID
+             else "Recordings cover every moment, the match recap and the six highest-impact players of each team.")
+    return f"Live agents are unavailable ({reason}) and this selection was not recorded. {scope}"
+
+
 @app.post("/api/explain")
 async def explain(req: ExplainRequest) -> dict:
     match, moment, player, key = resolve(req)
     if key in CACHE:
         return {**CACHE[key], "cached": True}
+    if DEMO_ONLY:
+        reason = "demo-only mode"
+        result = recorded_fallback(key, reason)
+        if result is None:
+            raise HTTPException(503, unavailable_message(key, reason))
+        return result
     for attempt in (1, 2):
         try:
             result = await run_explain(match, moment, MOMENTS[req.match_id], req.audience, req.language, player)
             break
-        except Exception as exc:  # model/auth/network failures surface as a readable 502
+        except Exception as exc:  # model/auth/network failures surface as a readable error
             if attempt == 1 and "Azure CLI" in str(exc):
                 reset_client()
                 continue
+            if demo.is_auth_error(exc):
+                STATE["live"] = False
+                reason = "Azure sign-in not available"
+                fallback = recorded_fallback(key, reason)
+                if fallback is None:
+                    raise HTTPException(503, unavailable_message(key, reason)) from exc
+                return fallback
             raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
+    STATE["live"] = True
     if cacheable(req, result):
         CACHE[key] = result
     return {**result, "cached": False}
@@ -159,14 +226,24 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
     """Same as /api/explain, but streams one JSON object per line as each agent starts and finishes."""
     match, moment, player, key = resolve(req)
 
+    def fallback_events(reason: str) -> str:
+        result = recorded_fallback(key, reason)
+        if result is None:
+            return json.dumps({"event": "error", "message": unavailable_message(key, reason)}) + "\n"
+        return json.dumps({"event": "result", "result": result}) + "\n"
+
     async def lines():
         if key in CACHE:
             yield json.dumps({"event": "result", "result": {**CACHE[key], "cached": True}}) + "\n"
+            return
+        if DEMO_ONLY:
+            yield fallback_events("demo-only mode")
             return
         for attempt in (1, 2):
             try:
                 async for ev in run_pipeline(match, moment, MOMENTS[req.match_id], req.audience, req.language, player):
                     if ev["event"] == "result":
+                        STATE["live"] = True
                         if cacheable(req, ev["result"]):
                             CACHE[key] = ev["result"]
                         ev = {"event": "result", "result": {**ev["result"], "cached": False}}
@@ -176,6 +253,10 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
                 if attempt == 1 and "Azure CLI" in str(exc):  # the `az` subprocess failed once on a cold start
                     reset_client()
                     continue
+                if demo.is_auth_error(exc):
+                    STATE["live"] = False
+                    yield fallback_events("Azure sign-in not available")
+                    return
                 yield json.dumps({"event": "error", "message": f"The agent pipeline failed: {exc}"}) + "\n"
                 return
 
