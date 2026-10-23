@@ -1,6 +1,8 @@
 """FastAPI service: match data, analytics and the multi-agent explanation endpoints."""
+import asyncio
 import json
 import random
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
@@ -9,15 +11,22 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analytics as an
+from . import players as pl
 from .adapters import from_statsbomb
-from .agents import AUDIENCES, LANGUAGES, run_pipeline
+from .agents import AUDIENCES, LANGUAGES, reset_client, run_pipeline, warm_up
 from .agents import explain as run_explain
 from .generator import generate_match
 from .schema import Match
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
-app = FastAPI(title="Match Insights Engine")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    asyncio.create_task(asyncio.to_thread(warm_up))  # in the background: do not delay startup
+    yield
+
+
+app = FastAPI(title="Match Insights Engine", lifespan=lifespan)
 
 MATCHES: dict[str, Match] = {}
 MOMENTS: dict[str, list[dict]] = {}
@@ -39,6 +48,10 @@ def get_match(match_id: str) -> Match:
     return MATCHES[match_id]
 
 
+def players_payload(match: Match) -> list[dict]:
+    return pl.overview(match)
+
+
 def payload(match: Match) -> dict:
     return {
         "id": match.id, "source": match.source, "competition": match.competition,
@@ -47,10 +60,13 @@ def payload(match: Match) -> dict:
         "momentum": an.momentum(match), "xg": an.xg_timeline(match),
         "possession": an.possession_windows(match),
         "control": an.control_windows(match),
+        "players": players_payload(match),
         "moments": MOMENTS[match.id],
         "events": [
             {"id": e.id, "t": round(e.t / 60, 2), "side": e.side, "type": e.type, "x": e.x, "y": e.y,
              "ex": e.end_x, "ey": e.end_y, "outcome": e.outcome, "xg": e.xg, "player": e.player_name,
+             "pid": e.player_id, "prog": e.type == "pass" and e.outcome == "complete"
+                                         and pl.gain(e) >= pl.PROGRESSIVE_GAIN_M,
              "seq": e.sequence_id}
             for e in match.events
         ],
@@ -86,32 +102,42 @@ async def upload(file: UploadFile) -> dict:
 
 class ExplainRequest(BaseModel):
     match_id: str
-    moment_id: str | None = None  # None = whole-match recap
+    moment_id: str | None = None  # None (and no player_id) = whole-match recap
+    player_id: int | None = None  # set = player spotlight
     audience: str = "casual_fan"
     language: str = "en"
 
 
-def resolve(req: ExplainRequest) -> tuple[Match, dict | None, tuple]:
+def resolve(req: ExplainRequest) -> tuple[Match, dict | None, dict | None, tuple]:
     if req.audience not in AUDIENCES or req.language not in LANGUAGES:
         raise HTTPException(422, "Unknown audience or language")
     match = get_match(req.match_id)
-    moment = None
-    if req.moment_id is not None:
+    moment = player = None
+    if req.player_id is not None:
+        player = pl.player_facts(match, req.player_id)
+        if player is None:
+            raise HTTPException(404, "Unknown or inactive player")
+    elif req.moment_id is not None:
         moment = next((m for m in MOMENTS[req.match_id] if m["id"] == req.moment_id), None)
         if moment is None:
             raise HTTPException(404, "Unknown moment")
-    return match, moment, (req.match_id, req.moment_id, req.audience, req.language)
+    return match, moment, player, (req.match_id, req.moment_id, req.player_id, req.audience, req.language)
 
 
 @app.post("/api/explain")
 async def explain(req: ExplainRequest) -> dict:
-    match, moment, key = resolve(req)
+    match, moment, player, key = resolve(req)
     if key in CACHE:
         return {**CACHE[key], "cached": True}
-    try:
-        result = await run_explain(match, moment, MOMENTS[req.match_id], req.audience, req.language)
-    except Exception as exc:  # model/auth/network failures surface as a readable 502
-        raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
+    for attempt in (1, 2):
+        try:
+            result = await run_explain(match, moment, MOMENTS[req.match_id], req.audience, req.language, player)
+            break
+        except Exception as exc:  # model/auth/network failures surface as a readable 502
+            if attempt == 1 and "Azure CLI" in str(exc):
+                reset_client()
+                continue
+            raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
     CACHE[key] = result
     return {**result, "cached": False}
 
@@ -119,20 +145,26 @@ async def explain(req: ExplainRequest) -> dict:
 @app.post("/api/explain/stream")
 async def explain_stream(req: ExplainRequest) -> StreamingResponse:
     """Same as /api/explain, but streams one JSON object per line as each agent starts and finishes."""
-    match, moment, key = resolve(req)
+    match, moment, player, key = resolve(req)
 
     async def lines():
         if key in CACHE:
             yield json.dumps({"event": "result", "result": {**CACHE[key], "cached": True}}) + "\n"
             return
-        try:
-            async for ev in run_pipeline(match, moment, MOMENTS[req.match_id], req.audience, req.language):
-                if ev["event"] == "result":
-                    CACHE[key] = ev["result"]
-                    ev = {"event": "result", "result": {**ev["result"], "cached": False}}
-                yield json.dumps(ev) + "\n"
-        except Exception as exc:
-            yield json.dumps({"event": "error", "message": f"The agent pipeline failed: {exc}"}) + "\n"
+        for attempt in (1, 2):
+            try:
+                async for ev in run_pipeline(match, moment, MOMENTS[req.match_id], req.audience, req.language, player):
+                    if ev["event"] == "result":
+                        CACHE[key] = ev["result"]
+                        ev = {"event": "result", "result": {**ev["result"], "cached": False}}
+                    yield json.dumps(ev) + "\n"
+                return
+            except Exception as exc:
+                if attempt == 1 and "Azure CLI" in str(exc):  # the `az` subprocess failed once on a cold start
+                    reset_client()
+                    continue
+                yield json.dumps({"event": "error", "message": f"The agent pipeline failed: {exc}"}) + "\n"
+                return
 
     return StreamingResponse(lines(), media_type="application/x-ndjson")
 

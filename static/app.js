@@ -3,7 +3,7 @@
 const NS = "http://www.w3.org/2000/svg";
 const $ = (id) => document.getElementById(id);
 
-const state = { match: null, selected: null, busy: false };
+const state = { match: null, selected: null, selectedPlayer: null, busy: false };
 
 /* ---------- helpers ---------- */
 function svg(tag, attrs = {}, parent = null, text = null) {
@@ -106,8 +106,9 @@ function renderPitch() {
   drawPitchBase(root);
   const m = state.match;
   const moment = m.moments.find((x) => x.id === state.selected);
+  const player = m.players.find((p) => p.id === state.selectedPlayer);
   const shots = m.events.filter((e) => e.type === "shot" || e.type === "goal");
-  const dim = !!moment;
+  const dim = !!moment || !!player;
 
   const layer = svg("g", { opacity: dim ? 0.18 : 1 }, root);
   for (const e of shots) {
@@ -143,6 +144,8 @@ function renderPitch() {
         svg("title", {}, d, `${clock(e.t)} ${e.type} – ${e.player || ""}`);
       }
     });
+  } else if (player) {
+    drawPlayer(root, player);
   } else {
     $("pitch-title").textContent = "Shot map";
   }
@@ -154,9 +157,58 @@ function renderPitch() {
     lg.appendChild(s);
   }
   const area = moment && (moment.type === "tactical_shift" || moment.type === "chaotic_spell");
+  if (player) {
+    lg.appendChild(html("span", { text: "Bright arrows = progressive passes · circles = shots · ◇ = ball won" }));
+    return;
+  }
   lg.appendChild(html("span", { text: !moment ? "Size = xG · white ring = goal"
     : moment.type === "tactical_shift" ? "Lines = press height before/after · ◇ = ball won"
     : area ? "◇ = ball won or lost during the period" : "Arrows = passes · ◇ = turnover" }));
+}
+
+/* One player's passes (progressive ones highlighted), shots and ball wins. */
+function drawPlayer(root, p) {
+  const m = state.match, col = colorOf(p.side);
+  $("pitch-title").textContent = `Player – ${p.name} (${p.position}, ${p.team})`;
+  const g = svg("g", {}, root);
+  for (const e of m.events.filter((ev) => ev.pid === p.id)) {
+    if (e.type === "pass" && e.ex != null) {
+      svg("line", { x1: e.x, y1: e.y, x2: e.ex, y2: e.ey, stroke: col, "stroke-width": e.prog ? 0.9 : 0.35,
+        "stroke-opacity": e.prog ? 1 : 0.28, ...(e.prog ? { "marker-end": `url(#arrow-${e.side})` } : {}) }, g);
+    } else if (e.type === "shot" || e.type === "goal") {
+      const c = svg("circle", { cx: e.x, cy: e.y, r: 1.2 + (e.xg ?? 0.05) * 6, fill: e.type === "goal" ? "#fff" : col,
+        "fill-opacity": 0.85, stroke: col, "stroke-width": 0.8 }, g);
+      svg("title", {}, c, shotTitle(e));
+    } else if (e.type === "tackle" || e.type === "interception") {
+      svg("rect", { x: e.x - 1, y: e.y - 1, width: 2, height: 2, transform: `rotate(45 ${e.x} ${e.y})`, fill: col }, g);
+    }
+  }
+}
+
+/* ---------- players ---------- */
+function renderPlayers() {
+  const m = state.match, box = $("players");
+  box.replaceChildren();
+  const best = m.players[0];
+  $("potm").textContent = best ? `Highest impact: ${best.name} (${best.team}) · ${best.impact}` : "";
+  const maxImpact = Math.max(...m.players.map((p) => p.impact), 1);
+  for (const side of ["home", "away"]) {
+    const col = html("div", { class: "pcol" }, [html("h3", { text: m[side].name, style: `border-color:${m[side].color}` })]);
+    col.appendChild(html("div", { class: "prow head" }, ["", "Player", "Impact", "G", "xG", "CC", "Prog"].map((t) => html("span", { text: t }))));
+    for (const p of m.players.filter((q) => q.side === side).slice(0, 6)) {
+      const row = html("button", { class: "prow", type: "button", "aria-pressed": p.id === state.selectedPlayer,
+        title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.tackles + p.interceptions} ball wins` }, [
+        html("span", { class: "rank", text: String(p.rank_in_team) }),
+        html("span", { class: "pname" }, [p.name, html("small", { text: ` ${p.position}` })]),
+        html("span", { class: "impact" }, [html("i", { style: `width:${(100 * p.impact) / maxImpact}%;background:${m[side].color}` }), html("b", { text: p.impact.toFixed(1) })]),
+        html("span", { text: String(p.goals) }), html("span", { text: p.xg.toFixed(2) }),
+        html("span", { text: String(p.chances_created) }), html("span", { text: String(p.progressive_passes) }),
+      ]);
+      row.addEventListener("click", () => selectPlayer(p.id));
+      col.appendChild(row);
+    }
+    box.appendChild(col);
+  }
 }
 
 /* ---------- momentum timeline ---------- */
@@ -288,14 +340,31 @@ function renderPossession() {
 }
 
 /* ---------- selection ---------- */
-function select(id) {
-  state.selected = state.selected === id ? null : id;
+function hasSelection() {
+  return state.selected !== null || state.selectedPlayer !== null;
+}
+
+function refreshSelection() {
   const mo = state.match.moments.find((x) => x.id === state.selected);
-  $("selected-label").textContent = mo ? `${mo.facts.minute} · ${mo.title}` : "Whole match";
-  $("btn-explain").disabled = !mo || state.busy;
+  const pl = state.match.players.find((p) => p.id === state.selectedPlayer);
+  $("selected-label").textContent = mo ? `${mo.facts.minute} · ${mo.title}` : pl ? `${pl.name} · ${pl.team}` : "Whole match";
+  $("btn-explain").textContent = pl ? "Explain this player" : "Explain this moment";
+  $("btn-explain").disabled = !hasSelection() || state.busy;
   $("result").hidden = true;
   showError("");
-  renderPitch(); renderMomentum(); renderMoments();
+  renderPitch(); renderMomentum(); renderMoments(); renderPlayers();
+}
+
+function select(id) {
+  state.selected = state.selected === id ? null : id;
+  state.selectedPlayer = null;
+  refreshSelection();
+}
+
+function selectPlayer(pid) {
+  state.selectedPlayer = state.selectedPlayer === pid ? null : pid;
+  state.selected = null;
+  refreshSelection();
 }
 
 /* ---------- agents ---------- */
@@ -309,7 +378,7 @@ const ROLE = {
 function setBusy(on) {
   state.busy = on;
   $("btn-recap").disabled = on;
-  $("btn-explain").disabled = on || !state.selected;
+  $("btn-explain").disabled = on || !hasSelection();
   const steps = $("steps");
   steps.hidden = !on;
   steps.replaceChildren();
@@ -370,14 +439,15 @@ function renderResult(r) {
   box.hidden = false;
 }
 
-async function runAgents(momentId) {
+async function runAgents(momentId, playerId = null) {
   showError("");
   $("result").hidden = true;
   setBusy(true);
   try {
     const res = await fetch("/api/explain/stream", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ match_id: state.match.id, moment_id: momentId, audience: $("audience").value, language: $("language").value }),
+      body: JSON.stringify({ match_id: state.match.id, moment_id: momentId, player_id: playerId,
+        audience: $("audience").value, language: $("language").value }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
     const reader = res.body.getReader();
@@ -413,11 +483,14 @@ async function runAgents(momentId) {
 function setMatch(data) {
   state.match = data;
   state.selected = null;
+  state.selectedPlayer = null;
   $("selected-label").textContent = "Whole match";
+  $("btn-explain").textContent = "Explain this moment";
   $("btn-explain").disabled = true;
   $("result").hidden = true;
   showError("");
-  renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderXG(); renderPossession();
+  renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderPlayers();
+  renderXG(); renderPossession();
 }
 
 async function init() {
@@ -426,6 +499,8 @@ async function init() {
     const sel = $("language");
     for (const [code, name] of Object.entries(cfg.languages)) sel.appendChild(html("option", { value: code, text: name }));
     setMatch(await api(`/api/match/${cfg.matches[0]}`));
+    const wantedPlayer = Number(new URLSearchParams(location.search).get("player"));  // e.g. /?player=6
+    if (wantedPlayer && state.match.players.some((p) => p.id === wantedPlayer)) selectPlayer(wantedPlayer);
     const wanted = new URLSearchParams(location.search).get("moment");  // deep link, e.g. /?moment=m1
     if (wanted && state.match.moments.some((m) => m.id === wanted)) {
       select(wanted);
@@ -436,7 +511,10 @@ async function init() {
   }
 }
 
-$("btn-explain").addEventListener("click", () => state.selected && runAgents(state.selected));
+$("btn-explain").addEventListener("click", () => {
+  if (state.selectedPlayer !== null) runAgents(null, state.selectedPlayer);
+  else if (state.selected) runAgents(state.selected);
+});
 $("btn-recap").addEventListener("click", () => runAgents(null));
 $("btn-new").addEventListener("click", async () => {
   try { setMatch(await api("/api/match/synthetic", { method: "POST" })); } catch (err) { showError(err.message); }

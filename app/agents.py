@@ -21,6 +21,7 @@ from azure.identity import AzureCliCredential
 from dotenv import load_dotenv
 
 from . import analytics as an
+from . import players as pl
 from .grounding import allowed_numbers, numeric_check
 from .schema import Match
 
@@ -40,8 +41,22 @@ _client: FoundryChatClient | None = None
 def client() -> FoundryChatClient:
     global _client
     if _client is None:
-        _client = FoundryChatClient(credential=AzureCliCredential())
+        # `az` is a slow subprocess on Windows; the default 10 s limit failed once on a cold first call
+        _client = FoundryChatClient(credential=AzureCliCredential(process_timeout=40))
     return _client
+
+
+def reset_client() -> None:
+    global _client
+    _client = None
+
+
+def warm_up() -> None:
+    """Start `az` once at server start so the first user request does not pay the cold start."""
+    try:
+        AzureCliCredential(process_timeout=40).get_token("https://cognitiveservices.azure.com/.default")
+    except Exception:  # best effort: a failure here must not stop the server
+        pass
 
 
 def parse_json(text: str) -> dict:
@@ -87,6 +102,36 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
     return [window_stats, sequence_details, score_and_win_probability]
 
 
+def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
+    stats = {s["id"]: s for s in pl.overview(match)}
+
+    def reply(tool_name: str, args: dict, payload: dict) -> str:
+        trace.append({"agent": "Analyst", "tool": tool_name, "args": args})
+        out = json.dumps(payload)
+        evidence.append(out)
+        return out
+
+    @tool(name="player_stats", description="Full statistics and impact score of one player by id: passes, "
+          "progressive passes, average pass quality (0-1), chances created, shots, xG, goals, top shot speed, "
+          "tackles, interceptions, saves, cards, and overall/in-team rank.")
+    def player_stats(player_id: int) -> str:
+        return reply("player_stats", {"player_id": player_id}, stats.get(player_id, {"error": "unknown player"}))
+
+    @tool(name="top_players", description="The n highest-impact players of a side ('home' or 'away'), "
+          "with their key numbers, to compare a player with teammates or opponents.")
+    def top_players(side: str, n: int = 3) -> str:
+        top = [s for s in stats.values() if s["side"] == side][:max(1, min(n, 5))]
+        keep = ("id", "name", "position", "goals", "xg", "chances_created", "progressive_passes", "impact", "rank_in_team")
+        return reply("top_players", {"side": side, "n": n}, {"players": [{k: s[k] for k in keep} for s in top]})
+
+    return [player_stats, top_players]
+
+
+GOAL_RULE = (
+    "Say what a goal meant only from its goal_role (or goals[].role): never call a goal the winner, the "
+    "equaliser or the opener because of the final score or the number of goals a player scored. "
+)
+
 NAMING = (
     "Always name teams and players (facts.teams maps the home/away keys to team names); never write 'home' "
     "or 'away' as if it were a name. "
@@ -101,7 +146,8 @@ ANALYST_PROMPT = (
     + NAMING +
     "last_10_min_before_moment covers the 10 minutes before the moment and excludes the moment itself. "
     "Say what the data explains: why this moment mattered (score, win probability), whether it went with or "
-    "against the run of play, and what changed tactically. For event 'tactical_shift' explain the swing using "
+    "against the run of play, and what changed tactically. " + GOAL_RULE +
+    "For event 'tactical_shift' explain the swing using "
     "field tilt (share of final-third passes), press height (metres from own goal where the ball is won) and "
     "likely_trigger; for 'chaotic_spell' explain the loss of control by BOTH teams: more sequences per minute, "
     "fewer passes per sequence and more turnovers than ten_minutes_before_spell and the rest of the match. A "
@@ -122,12 +168,37 @@ RECAP_NARRATOR_PROMPT = (
     '"tactical_takeaway": "the single insight that decided the game"}. '
     "Do not add numbers or causes that are not in the facts. Ignore the delivery request."
 )
+PLAYER_ANALYST_PROMPT = (
+    "You are the Player Spotlight analyst. The conversation starts with verified facts about one player. Use "
+    "your tools to compare the player with teammates (top_players for their side) and with the opposition "
+    "(top_players for the other side). Then reply with ONLY a JSON object: "
+    '{"findings": ["3 to 5 short, factual findings"], "stat_chips": [{"label": "...", "value": "..."}]} '
+    "with at most 5 stat_chips. Copy numbers exactly from the facts or tool results; never invent numbers. "
+    + NAMING +
+    "Do not do arithmetic: use ready-made fields such as ball_wins and share_of_team_pct instead of adding or "
+    "dividing numbers yourself. " + GOAL_RULE +
+    "Cover what the player did (creating chances, progressing the ball, finishing, winning the ball), how "
+    "they rank in their team and in the match, and how much of the team's output they account for. Impact is "
+    "a formula-based score (impact_formula in the facts), not a rating from a human; say so if you cite it. "
+    "Ignore the delivery request; it is for the Localiser."
+)
+PLAYER_NARRATOR_PROMPT = (
+    "You are the Narrator agent writing a player spotlight. Using ONLY the facts and the Analyst's findings in "
+    "the conversation, explain HOW this player influenced the match and what kind of player the numbers show. "
+    "Reply with ONLY a JSON object: "
+    '{"headline": "max 12 words", "explanation": "2-4 sentences", "tactical_takeaway": "1 sentence on how '
+    'the team used or could use this player"}. Do not add numbers or claims that are not in the conversation. '
+    "A rank or a comparison (more than, fewer than) needs both values in the conversation. " + GOAL_RULE +
+    "Ignore the delivery request."
+)
 VERIFIER_PROMPT = (
     "You are the Verifier agent, the hallucination guard. Check the Narrator's JSON claim by claim against the "
     "facts (first message) and the Analyst findings. A claim is an issue if a number, name, minute or causal "
     "statement is not supported by them. A claim that something rose, fell, increased, decreased, improved or "
     "dropped is supported only if BOTH the earlier and the later value are in the facts and move in that "
-    "direction; a lone value does not show a change. Reply with ONLY a JSON object: "
+    "direction; a lone value does not show a change. Describing a goal as the opener, the equaliser, "
+    "go-ahead or match-winning is supported only if it matches goal_role or goals[].role in the facts; if the "
+    "text gives a goal a role that differs from it, that is an issue. Reply with ONLY a JSON object: "
     '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": ["short description of each '
     'unsupported claim, empty if none"]}. Be strict but do not flag harmless paraphrase.'
 )
@@ -146,12 +217,16 @@ def _delivery(audience: str, language: str) -> str:
 
 
 async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], audience: str,
-                       language: str) -> AsyncIterator[dict]:
+                       language: str, player: dict | None = None) -> AsyncIterator[dict]:
     """Yield progress events, then a final {"event": "result", ...}."""
     trace: list[dict] = []
     evidence: list[str] = []
     c = client()
-    if moment is not None:
+    if player is not None:
+        agents = [Agent(c, PLAYER_ANALYST_PROMPT, name="Analyst", tools=make_player_tools(match, trace, evidence)),
+                  Agent(c, PLAYER_NARRATOR_PROMPT, name="Narrator")]
+        task = "Player facts:\n" + json.dumps(player)
+    elif moment is not None:
         agents = [Agent(c, ANALYST_PROMPT, name="Analyst", tools=make_tools(match, trace, evidence)),
                   Agent(c, NARRATOR_PROMPT, name="Narrator")]
         task = "Moment facts:\n" + json.dumps(moment["facts"])
@@ -199,9 +274,10 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
         **final, "findings": findings, "verification": verification, "trace": trace}}
 
 
-async def explain(match: Match, moment: dict | None, moments: list[dict], audience: str, language: str) -> dict:
+async def explain(match: Match, moment: dict | None, moments: list[dict], audience: str, language: str,
+                  player: dict | None = None) -> dict:
     result: dict = {}
-    async for ev in run_pipeline(match, moment, moments, audience, language):
+    async for ev in run_pipeline(match, moment, moments, audience, language, player):
         if ev["event"] == "result":
             result = ev["result"]
     return result

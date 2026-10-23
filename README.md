@@ -29,6 +29,13 @@ StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)     
   balanced or chaotic (control = possession + field tilt; chaos = possession changing hands far more often than
   the match average). The 10-minute swings in territory and press height are detected as tactical shifts and
   linked to the goal or red card that *preceded* them. Both appear as explainable moments.
+- **Player spotlight and pass quality.** `app/players.py` computes progressive passes, a 0-1 pass-quality score,
+  chances created, shot speed and a formula-based impact score (formula in the module docstring and shown in the
+  UI: it is explicitly *not* a human rating). Selecting a player draws their passes and shots, and the same
+  four-agent pipeline explains them, with tools to compare the player against teammates and opponents.
+- **Goal roles are computed, not inferred.** `goal_role` labels each goal (opening, equaliser, go-ahead,
+  match-winning...) from the score line. Early on, a spotlight called an equaliser "the winning goal" and the
+  Verifier approved it, so the role is now handed to the agents as a fact and the Verifier checks against it.
 - **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
 - **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
   event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture

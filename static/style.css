@@ -87,6 +87,25 @@ svg text { fill: var(--muted); font-size: 10px; font-family: inherit; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
 .note { margin: 8px 0 0; }
+
+.players { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pcol h3 { margin: 0 0 8px; font-size: 14px; padding-left: 8px; border-left: 4px solid; }
+.prow {
+  display: grid; grid-template-columns: 18px minmax(0, 1.5fr) minmax(70px, 1fr) 22px 38px 24px 30px; gap: 6px;
+  align-items: center; width: 100%; text-align: left; padding: 6px 8px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent; color: var(--text); font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.prow.head { color: var(--muted); font-size: 11.5px; cursor: default; padding-top: 0; }
+button.prow:hover { background: var(--surface-2); }
+button.prow[aria-pressed="true"] { border-color: var(--accent); background: rgba(53,211,154,.08); }
+.prow .rank { color: var(--muted); }
+.prow .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .pname small { color: var(--muted); }
+.prow .impact { position: relative; display: block; height: 16px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.prow .impact i { position: absolute; inset: 0 auto 0 0; opacity: .55; }
+.prow .impact b { position: relative; padding-left: 6px; font-size: 12px; line-height: 16px; }
+@media (max-width: 760px) { .players { grid-template-columns: 1fr; } }
 .marker { cursor: pointer; }
 .marker:focus-visible circle.hit { stroke: var(--accent); stroke-width: 2; }
 

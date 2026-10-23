@@ -74,11 +74,19 @@ class Gen:
         self.events: list[dict] = []
         self.seq = 0
 
-    def pick(self, side: str, positions: tuple[str, ...] | None = None) -> Player:
+    # playmakers touch the ball more than full-backs and centre-backs
+    TOUCH_WEIGHT = {"CB": 1.0, "LB": 1.0, "RB": 1.0, "CM": 2.2, "CAM": 2.8, "LW": 1.6, "RW": 1.6, "ST": 1.0}
+
+    # defensive actions are made mostly by defenders and holding midfielders
+    DEFENDER_WEIGHT = {"CB": 3.0, "LB": 2.0, "RB": 2.0, "CM": 2.5, "CAM": 0.7, "LW": 0.5, "RW": 0.5, "ST": 0.4}
+
+    def pick(self, side: str, positions: tuple[str, ...] | None = None,
+             weights: dict[str, float] | None = None) -> Player:
+        weights = weights or self.TOUCH_WEIGHT
         pool = [p for p in self.players if p.side == side and p.position != "GK"]
         if positions:
             pool = [p for p in pool if p.position in positions]
-        return self.r.choice(pool)
+        return self.r.choices(pool, [weights[p.position] for p in pool])[0]
 
     def gk(self, side: str) -> Player:
         return next(p for p in self.players if p.side == side and p.position == "GK")
@@ -152,7 +160,11 @@ class Gen:
                 t += 6.0
         else:
             roll = self.r.random()
-            d = self.pick(other)
+            d = self.pick(other, weights=self.DEFENDER_WEIGHT)
+            if 0.55 <= roll < 0.90:  # the last pass is the one that gets intercepted
+                last = next((ev for ev in reversed(self.events) if ev["type"] == "pass" and ev["side"] == side), None)
+                if last:
+                    last["outcome"] = "incomplete"
             if roll < 0.55:
                 self.add(t, other, "tackle", d, PITCH_W - lx, PITCH_H - ly, outcome="won")
             elif roll < 0.90:

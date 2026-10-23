@@ -23,6 +23,31 @@ def score_at(match: Match, t: float, inclusive: bool = False) -> tuple[int, int]
     return h, a
 
 
+def goal_role(match: Match, goal: Event) -> str:
+    """What a goal meant in the match, computed from the score line so no one has to infer it.
+
+    The match-winning goal is the winner's (loser's final total + 1)th goal.
+    """
+    before_h, before_a = score_at(match, goal.t)
+    own_b, opp_b = (before_h, before_a) if goal.side == "home" else (before_a, before_h)
+    own_a = own_b + 1
+    final_h, final_a = score_at(match, 10 ** 9)
+    final_own, final_opp = (final_h, final_a) if goal.side == "home" else (final_a, final_h)
+    if own_b + opp_b == 0:
+        role = "opening goal"
+    elif own_b == opp_b:
+        role = "go-ahead goal"
+    elif own_b < opp_b and own_a == opp_b:
+        role = "equaliser"
+    elif own_b < opp_b:
+        role = "goal that reduces the deficit"
+    else:
+        role = "goal that extends the lead"
+    if final_own > final_opp and own_a == final_opp + 1:
+        role += " (match-winning)"
+    return role
+
+
 def reds_before(match: Match, t: float) -> dict[str, int]:
     out = {"home": 0, "away": 0}
     for e in match.events:
@@ -282,8 +307,10 @@ def tactical_shifts(match: Match, window: int = 10, threshold: int = 25, max_shi
     for c in chosen:
         t, side = c["t"], "home" if c["delta"] > 0 else "away"
         before, after = c["before"], c["after"]
-        # a cause must precede its effect: the latest goal or red card in the 6 minutes up to the shift
-        causes = [e for e in match.events if e.type in ("goal", "red_card") and 0 <= t - e.t / 60 <= 6]
+        # A cause must precede its effect: the latest goal or red card in the 6 minutes up to the shift.
+        # Shifts are located at whole minutes, so an event in the first minute of the "after" window
+        # (which starts at that minute) still counts: tolerance of one minute, never more.
+        causes = [e for e in match.events if e.type in ("goal", "red_card") and -1 <= t - e.t / 60 <= 6]
         trig = None
         if causes:
             e = max(causes, key=lambda x: x.t)
@@ -364,6 +391,8 @@ def detect_moments(match: Match) -> list[dict]:
         if kind == "goal" and seq and seq["kind"] != "build-up":
             title += f" ({seq['kind']})"
         facts["against_run_of_play"] = against_run
+        if kind == "goal":
+            facts["goal_role"] = goal_role(match, e)
         moments.append({
             "minute": e.minute, "second": e.second,
             "type": kind, "side": e.side, "title": title,
