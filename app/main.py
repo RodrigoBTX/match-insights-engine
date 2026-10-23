@@ -92,7 +92,9 @@ def payload(match: Match) -> dict:
         "possession": an.possession_windows(match),
         "control": an.control_windows(match),
         "players": players_payload(match),
-        "moments": MOMENTS[match.id],
+        # key figures per moment so the UI can show them on the first click, without waiting for the agents;
+        # added on copies: the stored moments (and so the recordings' fingerprint) are untouched
+        "moments": [{**m, "chips": chips_mod.build_chips(match, m, None, "en")} for m in MOMENTS[match.id]],
         "events": [
             {"id": e.id, "t": round(e.t / 60, 2), "side": e.side, "type": e.type, "x": e.x, "y": e.y,
              "ex": e.end_x, "ey": e.end_y, "outcome": e.outcome, "xg": e.xg, "player": e.player_name,

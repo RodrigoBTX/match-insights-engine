@@ -3,7 +3,7 @@
 const NS = "http://www.w3.org/2000/svg";
 const $ = (id) => document.getElementById(id);
 
-const state = { match: null, selected: null, selectedPlayer: null, busy: false };
+const state = { match: null, selected: null, selectedPlayer: null, selectedWindow: null, busy: false };
 
 /* ---------- helpers ---------- */
 function svg(tag, attrs = {}, parent = null, text = null) {
@@ -320,8 +320,14 @@ function renderControl() {
     const x = L + i * cw;
     const fill = w.state === "chaotic" ? "url(#chaos-hatch)" : w.state === "home_control" ? m.home.color
       : w.state === "away_control" ? m.away.color : NEUTRAL_COLOR;
-    const r = svg("rect", { x: x + 1, y, width: cw - 2, height: h, rx: 4, fill, "fill-opacity": w.state === "balanced" ? 0.55 : 0.9 }, root);
-    svg("title", {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)}\ncontrol ${m.home.short} ${w.control_score.home} / ${m.away.short} ${w.control_score.away}\n${w.sequences_per_min} sequences/min · ${w.avg_passes_per_sequence} passes/sequence`);
+    const picked = state.selectedWindow === i;
+    const cell = svg("g", { class: "cell", tabindex: 0, role: "button", "aria-pressed": picked,
+      "aria-label": `${w.start}' to ${w.end}': ${stateLabel(w.state)}` }, root);
+    const r = svg("rect", { x: x + 1, y, width: cw - 2, height: h, rx: 4, fill, "fill-opacity": w.state === "balanced" ? 0.55 : 0.9,
+      stroke: picked ? "#fff" : "none", "stroke-width": picked ? 2.5 : 0 }, cell);
+    svg("title", {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)} (select for details)`);
+    cell.addEventListener("click", () => selectWindow(i));
+    cell.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectWindow(i); } });
     if (i % 3 === 0) svg("text", { x: x + cw / 2, y: 62, "text-anchor": "middle" }, root, `${w.start}'`);
   });
   const lg = $("control-legend");
@@ -443,26 +449,131 @@ function hasSelection() {
   return state.selected !== null || state.selectedPlayer !== null;
 }
 
+const chipEl = (c) => html("div", { class: "statchip" }, [
+  html("b", { text: String(c.value) }), html("span", { text: String(c.label) }),
+  ...(c.detail ? [html("small", { text: c.detail })] : [])]);
+
+function miniPitch(moment, player, label) {
+  const mini = svg("svg", { viewBox: "-3 -3 111 74", class: "mini-pitch", role: "img", "aria-label": label });
+  drawScene(mini, moment, player);
+  return mini;
+}
+
+/* Everything shown here already exists in the page data: no request, no agent, no waiting. */
+function renderInfo() {
+  const box = $("info");
+  box.replaceChildren();
+  const m = state.match;
+  const mo = m.moments.find((x) => x.id === state.selected);
+  const pl = m.players.find((p) => p.id === state.selectedPlayer);
+  const win = state.selectedWindow !== null ? m.control[state.selectedWindow] : null;
+  const head = (tag, color, right) => html("div", { class: "info-head" }, [
+    html("span", { class: "info-tag", style: `background:${color}`, text: tag }), ...(right ? [right] : [])]);
+
+  if (mo) {
+    const i = m.moments.indexOf(mo);
+    box.append(
+      head(TAGS[mo.type] || "MOMENT", colorOf(mo.side), html("b", { text: mo.facts.minute })),
+      html("h3", { class: "info-title", text: mo.title }),
+      html("p", { class: "info-sub", text: `${m.home.short} ${mo.facts.score_after.replace("-", " – ")} ${m.away.short}` }),
+      miniPitch(mo, null, `Replay of ${mo.title}`),
+      html("div", { class: "chips" }, (mo.chips || []).map(chipEl)),
+      html("div", { class: "info-nav" }, [
+        html("button", { class: "ghost", type: "button", id: "prev-moment", title: "Previous moment (←)", text: "◀ Previous" }),
+        html("span", { class: "info-pos", text: `${i + 1} of ${m.moments.length}` }),
+        html("button", { class: "ghost", type: "button", id: "next-moment", title: "Next moment (→)", text: "Next ▶" }),
+      ]),
+    );
+    $("prev-moment").addEventListener("click", () => stepMoment(-1));
+    $("next-moment").addEventListener("click", () => stepMoment(1));
+  } else if (pl) {
+    const short = m[pl.side].short;
+    const keeper = pl.position === "GK" || (pl.saves > 0 && !pl.shots && !pl.chances_created);
+    const cards = keeper
+      ? [{ label: "Saves", value: pl.saves, detail: short }, { label: "Impact", value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` }]
+      : [{ label: "Impact", value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` },
+         { label: "Goals", value: pl.goals, detail: `xG ${pl.xg.toFixed(2)}` },
+         { label: "Chances created", value: pl.chances_created, detail: short },
+         { label: "Progressive passes", value: pl.progressive_passes, detail: short },
+         { label: "Ball wins", value: pl.ball_wins, detail: short }];
+    box.append(
+      head("PLAYER", colorOf(pl.side), html("b", { text: pl.team })),
+      html("h3", { class: "info-title", text: pl.name }),
+      html("p", { class: "info-sub", text: `${pl.position} · impact rank #${pl.rank_in_team} in team, #${pl.rank_overall} in the match` }),
+      miniPitch(null, pl, `${pl.name}: passes, shots and ball wins`),
+      html("div", { class: "chips" }, cards.map(chipEl)),
+    );
+  } else if (win) {
+    const H = m.home.short, A = m.away.short, both = `${H} – ${A}`;
+    const empty = win.avg_passes_per_sequence === 0;
+    box.append(
+      head("WINDOW", NEUTRAL_COLOR, html("b", { text: `${win.start}'–${win.end}'` })),
+      html("h3", { class: "info-title", text: stateLabel(win.state) }),
+      html("p", { class: "info-sub", text: empty ? "No play was recorded in this window." : `Chaos index ${win.chaos_ratio}× the match average` }),
+    );
+    if (!empty) {
+      box.append(html("div", { class: "chips" }, [
+        { label: "Control", value: `${win.control_score.home} – ${win.control_score.away}`, detail: both },
+        { label: "Possession", value: `${win.possession_pct.home}% – ${win.possession_pct.away}%`, detail: both },
+        { label: "Territory", value: `${win.field_tilt_pct.home}% – ${win.field_tilt_pct.away}%`, detail: both },
+        { label: "Possession changes/min", value: win.sequences_per_min, detail: `${H} + ${A}` },
+        { label: "Passes per move", value: win.avg_passes_per_sequence, detail: `${H} + ${A}` },
+      ].map(chipEl)));
+    }
+    for (const inside of m.moments.filter((x) => x.minute >= win.start && x.minute < win.end)) {
+      const b = html("button", { class: "ghost info-open", type: "button", text: `Open: ${inside.facts.minute} ${inside.title}` });
+      b.addEventListener("click", () => select(inside.id));
+      box.append(b);
+    }
+  } else {
+    box.append(html("p", { class: "info-hint",
+      text: "Select a marker on the timeline, a square in Control vs chaos or a player to see its key figures and a small replay here. Move between moments with ◀ ▶ or the arrow keys." }));
+  }
+}
+
 function refreshSelection() {
   const mo = state.match.moments.find((x) => x.id === state.selected);
   const pl = state.match.players.find((p) => p.id === state.selectedPlayer);
-  $("selected-label").textContent = mo ? `${mo.facts.minute} · ${mo.title}` : pl ? `${pl.name} · ${pl.team}` : "Whole match";
+  const win = state.selectedWindow !== null ? state.match.control[state.selectedWindow] : null;
+  $("selected-label").textContent = mo ? `${mo.facts.minute} · ${mo.title}` : pl ? `${pl.name} · ${pl.team}`
+    : win ? `Window ${win.start}'–${win.end}'` : "Whole match";
   $("btn-explain").textContent = pl ? "Explain this player" : "Explain this moment";
   $("btn-explain").disabled = !hasSelection() || state.busy;
   $("result").hidden = true;
   showError("");
-  renderPitch(); renderMomentum(); renderMoments(); renderPlayers();
+  renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderPlayers(); renderInfo();
 }
 
 function select(id) {
   state.selected = state.selected === id ? null : id;
   state.selectedPlayer = null;
+  state.selectedWindow = null;
   refreshSelection();
 }
 
 function selectPlayer(pid) {
   state.selectedPlayer = state.selectedPlayer === pid ? null : pid;
   state.selected = null;
+  state.selectedWindow = null;
+  refreshSelection();
+}
+
+function selectWindow(i) {
+  state.selectedWindow = state.selectedWindow === i ? null : i;
+  state.selected = null;
+  state.selectedPlayer = null;
+  refreshSelection();
+}
+
+/* Move to the previous/next moment in time order, wrapping around. */
+function stepMoment(delta) {
+  const ms = state.match.moments;
+  if (!ms.length) return;
+  const i = ms.findIndex((x) => x.id === state.selected);
+  const next = i < 0 ? (delta > 0 ? 0 : ms.length - 1) : (i + delta + ms.length) % ms.length;
+  state.selected = ms[next].id;
+  state.selectedPlayer = null;
+  state.selectedWindow = null;
   refreshSelection();
 }
 
@@ -615,13 +726,14 @@ function setMatch(data) {
   state.match = data;
   state.selected = null;
   state.selectedPlayer = null;
+  state.selectedWindow = null;
   $("selected-label").textContent = "Whole match";
   $("btn-explain").textContent = "Explain this moment";
   $("btn-explain").disabled = true;
   $("result").hidden = true;
   showError("");
   renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderPlayers();
-  renderXG(); renderPossession();
+  renderXG(); renderPossession(); renderInfo();
 }
 
 async function init() {
@@ -659,7 +771,15 @@ $("btn-broadcast").addEventListener("click", () => {
 });
 $("stage-close").addEventListener("click", closeStage);
 $("stage-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeStage(); });
-document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !$("stage-backdrop").hidden) closeStage(); });
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && !$("stage-backdrop").hidden) closeStage();
+  // ← → move between moments, only when one is selected and nothing that uses the arrows has focus
+  const typing = ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName);
+  if ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && state.selected && !typing && $("stage-backdrop").hidden && !state.busy) {
+    ev.preventDefault();
+    stepMoment(ev.key === "ArrowRight" ? 1 : -1);
+  }
+});
 $("btn-new").addEventListener("click", async () => {
   try { setMatch(await api("/api/match/synthetic", { method: "POST" })); } catch (err) { showError(err.message); }
 });

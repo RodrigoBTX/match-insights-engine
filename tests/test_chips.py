@@ -103,6 +103,17 @@ def test_unusual_facts_give_no_cards_rather_than_a_wrong_figure():
     assert ch.build_chips(MATCH, broken, None, "en") == []
 
 
+def test_the_payload_carries_each_moments_cards_without_touching_the_stored_moments():
+    match = main.MATCHES[main.demo.DEMO_MATCH_ID]
+    before = [dict(m) for m in main.MOMENTS[match.id]]
+    data = main.payload(match)
+    assert len(data["moments"]) == len(main.MOMENTS[match.id])
+    for sent, stored in zip(data["moments"], main.MOMENTS[match.id]):
+        assert len(sent["chips"]) == 3 and "chips" not in stored  # the stored moment is not mutated
+        assert sent["chips"] == ch.build_chips(match, stored, None, "en")
+    assert main.MOMENTS[match.id] == before
+
+
 def test_finalize_replaces_model_chosen_cards_and_keeps_the_text():
     model_result = {"headline": "h", "explanation": "e", "stat_chips": [{"label": "Possession", "value": "63%"}],
                     "graphic": {"title": "t", "line": "l", "chips": [{"label": "Shots", "value": "24"}]}}

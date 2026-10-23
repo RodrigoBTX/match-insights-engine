@@ -50,6 +50,10 @@ StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)     
   graphic title or line, explanation) that names only one of them is flagged and shows as "Needs a check". On the
   first recording 4 of 5 chaotic-spell results failed this check, the Verifier having approved them all; prompts
   alone did not fix it (the Portuguese text kept reframing it), the check plus re-recording did.
+- **Selection card (instant, no agents).** Selecting a moment (marker or list), a window of the control strip or a
+  player shows its key figures and a small replay in the side panel straight away, from data already in the page.
+  ◀ ▶ buttons or the arrow keys move between moments; a window offers to open the moment that starts in it.
+  The agents run only when you press *Explain*.
 - **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
 - **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
   event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture
