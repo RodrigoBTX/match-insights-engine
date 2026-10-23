@@ -127,6 +127,20 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
     return [player_stats, top_players]
 
 
+GRAPHIC_RULE = (
+    " The audience is a broadcaster, so ALSO include a key \"graphic\" for an on-screen lower third: "
+    '{"title": "max 6 words", "line": "one on-air sentence of max 20 words", "chips": [{"label": "max 3 words", '
+    '"value": "a short figure"}]} with exactly 3 chips. Use only figures that appear in the conversation. The '
+    'title must state the news itself (who did what), never a generic label such as "Key Match Stats", "Moment '
+    'That Mattered" or "Match Summary".'
+)
+
+LOCALISER_GRAPHIC = (
+    ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": "...", "chips": [{"label": "...", '
+    '"value": "..."}]}, copied from the "graphic" object in the Narrator JSON and translated, with exactly the same '
+    "figures and the same number of chips. Never omit it."
+)
+
 GOAL_RULE = (
     "Say what a goal meant only from its goal_role (or goals[].role): never call a goal the winner, the "
     "equaliser or the opener because of the final score or the number of goals a player scored. "
@@ -198,7 +212,8 @@ VERIFIER_PROMPT = (
     "dropped is supported only if BOTH the earlier and the later value are in the facts and move in that "
     "direction; a lone value does not show a change. Describing a goal as the opener, the equaliser, "
     "go-ahead or match-winning is supported only if it matches goal_role or goals[].role in the facts; if the "
-    "text gives a goal a role that differs from it, that is an issue. Reply with ONLY a JSON object: "
+    "text gives a goal a role that differs from it, that is an issue. If the Narrator JSON has a \"graphic\" "
+    "object, check its title, line and chip values exactly like the rest. Reply with ONLY a JSON object: "
     '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": ["short description of each '
     'unsupported claim, empty if none"]}. Be strict but do not flag harmless paraphrase.'
 )
@@ -208,8 +223,32 @@ LOCALISER_PROMPT = (
     "keeping every remaining number and fact unchanged. Reply with ONLY a JSON object: "
     '{"headline": "...", "explanation": "...", "tactical_takeaway": "...", "stat_chips": [{"label": "...", '
     '"value": "..."}]}. If the Analyst produced stat_chips, translate their labels and keep their values; '
-    "otherwise return an empty stat_chips list."
+    "otherwise return an empty stat_chips list. If the Narrator JSON has a \"graphic\" object, include it too, "
+    "translated, with the same keys and unchanged figures (title, line, chips[].label, chips[].value)."
 )
+
+
+def normalize_graphic(raw) -> dict | None:
+    """Validate the lower-third graphic an agent returned; anything malformed is dropped, not guessed."""
+    if not isinstance(raw, dict):
+        return None
+    title, line, chips = raw.get("title"), raw.get("line"), raw.get("chips")
+    if not (isinstance(title, str) and title.strip() and isinstance(line, str) and line.strip()):
+        return None
+    clean = [{"label": str(c.get("label", "")).strip(), "value": str(c.get("value", "")).strip()}
+             for c in (chips if isinstance(chips, list) else []) if isinstance(c, dict)]
+    return {"title": title.strip(), "line": line.strip(), "chips": [c for c in clean if c["label"] and c["value"]][:3]}
+
+
+def narrated_text(final: dict) -> str:
+    """Every piece of text shown to the user, so the numeric guard sees all of it (graphic included)."""
+    graphic = final.get("graphic") or {}
+    return " ".join([
+        final.get("headline", ""), final.get("explanation", ""), final.get("tactical_takeaway", ""),
+        *(str(c.get("value", "")) for c in final.get("stat_chips", [])),
+        graphic.get("title", ""), graphic.get("line", ""),
+        *(f"{c.get('label', '')} {c.get('value', '')}" for c in graphic.get("chips", [])),
+    ])
 
 
 def _delivery(audience: str, language: str) -> str:
@@ -222,16 +261,17 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     trace: list[dict] = []
     evidence: list[str] = []
     c = client()
+    extra = GRAPHIC_RULE if audience == "broadcaster" else ""  # the Narrator writes the graphic so the Verifier checks it
     if player is not None:
         agents = [Agent(c, PLAYER_ANALYST_PROMPT, name="Analyst", tools=make_player_tools(match, trace, evidence)),
-                  Agent(c, PLAYER_NARRATOR_PROMPT, name="Narrator")]
+                  Agent(c, PLAYER_NARRATOR_PROMPT + extra, name="Narrator")]
         task = "Player facts:\n" + json.dumps(player)
     elif moment is not None:
         agents = [Agent(c, ANALYST_PROMPT, name="Analyst", tools=make_tools(match, trace, evidence)),
-                  Agent(c, NARRATOR_PROMPT, name="Narrator")]
+                  Agent(c, NARRATOR_PROMPT + extra, name="Narrator")]
         task = "Moment facts:\n" + json.dumps(moment["facts"])
     else:
-        agents = [Agent(c, RECAP_NARRATOR_PROMPT, name="Narrator")]
+        agents = [Agent(c, RECAP_NARRATOR_PROMPT + extra, name="Narrator")]
         keys = ("minute", "player", "xg", "score_before", "score_after", "win_probability_before",
                 "win_probability_after", "against_run_of_play", "sequence", "change", "likely_trigger",
                 "during_spell", "rest_of_match_average")
@@ -239,7 +279,8 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
             "home": match.home.name, "away": match.away.name, "summary": an.match_summary(match),
             "moments": [{"title": m["title"], "facts": {k: m["facts"][k] for k in keys if k in m["facts"]}}
                         for m in moments]})
-    agents += [Agent(c, VERIFIER_PROMPT, name="Verifier"), Agent(c, LOCALISER_PROMPT, name="Localiser")]
+    localiser_prompt = LOCALISER_PROMPT + (LOCALISER_GRAPHIC if audience == "broadcaster" else "")
+    agents += [Agent(c, VERIFIER_PROMPT, name="Verifier"), Agent(c, localiser_prompt, name="Localiser")]
     names = [a.name for a in agents]
     yield {"event": "plan", "agents": names}
 
@@ -265,11 +306,20 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     except (ValueError, KeyError):
         verification = {"verdict": "unknown", "claims_checked": 0, "issues": []}
     final.setdefault("stat_chips", [])
+    graphic = None
+    if audience == "broadcaster":
+        graphic = normalize_graphic(final.get("graphic"))
+        if graphic is None and language == "en":
+            # the Localiser left it out: the Narrator's English graphic is already the final text in English.
+            # For other languages there is no safe fallback (it would be untranslated), so it stays None.
+            try:
+                graphic = normalize_graphic(parse_json(texts["Narrator"]).get("graphic"))
+            except (ValueError, KeyError):
+                graphic = None
+    final["graphic"] = graphic
     findings = analysis.get("findings", [])
     allowed = allowed_numbers(task, *evidence, *findings)
-    narrated = " ".join([final.get("headline", ""), final.get("explanation", ""), final.get("tactical_takeaway", ""),
-                         *(str(c.get("value", "")) for c in final["stat_chips"])])
-    verification["numeric_check"] = numeric_check(narrated, allowed)
+    verification["numeric_check"] = numeric_check(narrated_text(final), allowed)
     yield {"event": "result", "result": {
         **final, "findings": findings, "verification": verification, "trace": trace}}
 

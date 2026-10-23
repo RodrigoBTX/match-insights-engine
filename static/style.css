@@ -129,6 +129,71 @@ select {
 }
 .buttons { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
 
+.broadcast {
+  width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--muted); color: var(--text);
+}
+.broadcast:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+/* ---- broadcast stage: everything scales with the stage width (cqw) like a TV graphic ---- */
+.stage-backdrop {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px;
+  background: rgba(2, 6, 5, .86);
+}
+.stage-backdrop[hidden] { display: none; }
+.stage-wrap { width: min(1180px, 100%); display: grid; gap: 10px; justify-items: end; }
+.stage {
+  --accent-team: var(--accent);
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px;
+  background: #0c2a20; container-type: inline-size; box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+}
+.stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage > svg text { font-size: 2.6px; }
+
+.bug {
+  position: absolute; top: 2.4cqw; left: 2.4cqw; display: flex; align-items: stretch; font-size: 1.7cqw;
+  background: rgba(8, 14, 12, .92); border-radius: .5cqw; overflow: hidden; font-variant-numeric: tabular-nums;
+}
+.bug > * { padding: .7cqw 1.2cqw; display: flex; align-items: center; }
+.bug-team { font-weight: 700; letter-spacing: .08em; border-bottom: .35cqw solid; }
+.bug-score { font-size: 2.1cqw; background: rgba(255, 255, 255, .08); }
+.bug-clock { color: var(--accent); font-weight: 700; }
+
+.lower {
+  position: absolute; left: 2.4cqw; right: 2.4cqw; bottom: 2.6cqw; display: grid; grid-template-columns: 1fr auto;
+  gap: 2cqw; align-items: center; padding: 1.6cqw 2cqw; border-left: .8cqw solid var(--accent-team);
+  background: linear-gradient(90deg, rgba(8, 14, 12, .96), rgba(8, 14, 12, .86)); border-radius: 0 .6cqw .6cqw 0;
+  transform: translateX(-6%); opacity: 0; transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .55s ease;
+}
+.lower.in { transform: none; opacity: 1; }
+.lower-main { min-width: 0; }
+.lower-tag { color: var(--accent-team); font-size: 1.15cqw; font-weight: 800; letter-spacing: .18em; }
+.lower-title { margin: .2cqw 0 .3cqw; font-size: 3.1cqw; line-height: 1.12; }
+.lower-line {
+  margin: 0; font-size: 1.65cqw; line-height: 1.3; color: #d9e6e0; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.lower-chips { display: grid; grid-auto-flow: column; gap: 1cqw; }
+.lower-chip {
+  min-width: 8.4cqw; padding: .8cqw 1cqw; text-align: center; background: rgba(255, 255, 255, .07); border-radius: .5cqw;
+}
+.lower-chip { max-width: 12.5cqw; }
+.lower-chip b { display: block; font-size: 2.3cqw; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lower-chip b.long { font-size: 1.55cqw; white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }  /* never cut a key figure */
+.lower-chip span {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 1cqw; line-height: 1.25; color: var(--muted);  /* the model does not always keep labels to 3 words */
+}
+.lower-verified { grid-column: 1 / -1; justify-self: end; font-size: .95cqw; letter-spacing: .04em; }
+.lower-verified.ok { color: var(--accent); }
+.lower-verified.warn { color: #ffb454; }
+
+.prob { margin-top: .9cqw; display: flex; align-items: center; gap: 1cqw; }
+.prob-title { font-size: .95cqw; color: var(--muted); white-space: nowrap; }
+.prob-bar { display: flex; flex: 1; height: 1.5cqw; border-radius: .4cqw; overflow: hidden; }
+.prob-bar .seg { display: grid; place-items: center; font-size: .9cqw; font-weight: 700; color: #04120c; overflow: hidden; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { .lower { transition: none; transform: none; opacity: 1; } }
+
 .steps { margin-top: 14px; display: grid; gap: 8px; }
 .step { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13.5px; }
 .step.active { color: var(--text); }

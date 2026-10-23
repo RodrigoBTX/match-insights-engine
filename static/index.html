@@ -98,6 +98,8 @@
         <button id="btn-explain" class="primary" type="button" disabled>Explain this moment</button>
         <button id="btn-recap" class="secondary" type="button">Match recap</button>
       </div>
+      <button id="btn-broadcast" class="broadcast" type="button"
+        title="Generate an on-screen lower-third graphic for the current selection">Broadcast view</button>
 
       <div id="steps" class="steps" hidden></div>
       <div id="error" class="error" role="alert" hidden></div>
@@ -105,6 +107,17 @@
     </div>
   </aside>
 </main>
+
+<div id="stage-backdrop" class="stage-backdrop" hidden>
+  <div class="stage-wrap">
+    <button id="stage-close" class="ghost" type="button">Close (Esc)</button>
+    <div class="stage" id="stage" role="dialog" aria-label="Broadcast graphic">
+      <svg id="stage-pitch" viewBox="-3 -3 111 74" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+      <div class="bug" id="bug"></div>
+      <div class="lower" id="lower"></div>
+    </div>
+  </div>
+</div>
 
 <footer class="foot">
   Data source: <span id="source">synthetic</span> &middot; All numbers are computed deterministically; agents explain them.

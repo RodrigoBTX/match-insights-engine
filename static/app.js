@@ -100,13 +100,10 @@ function shotTitle(e) {
   return `${clock(e.t)} ${e.player || ""} (${nameOf(e.side)})${xg} · ${e.outcome || e.type}`;
 }
 
-function renderPitch() {
-  const root = $("pitch");
-  root.replaceChildren();
+/* Draws the pitch scene (shot map, or a moment replay, or one player) into any svg root. */
+function drawScene(root, moment, player) {
   drawPitchBase(root);
   const m = state.match;
-  const moment = m.moments.find((x) => x.id === state.selected);
-  const player = m.players.find((p) => p.id === state.selectedPlayer);
   const shots = m.events.filter((e) => e.type === "shot" || e.type === "goal");
   const dim = !!moment || !!player;
 
@@ -119,7 +116,6 @@ function renderPitch() {
   }
 
   if (moment) {
-    $("pitch-title").textContent = `Replay – ${moment.title} (${moment.facts.minute})`;
     const byId = new Map(m.events.map((e) => [e.id, e]));
     const seq = moment.event_ids.map((id) => byId.get(id)).filter(Boolean);
     const g = svg("g", {}, root);
@@ -146,9 +142,18 @@ function renderPitch() {
     });
   } else if (player) {
     drawPlayer(root, player);
-  } else {
-    $("pitch-title").textContent = "Shot map";
   }
+}
+
+function renderPitch() {
+  const root = $("pitch");
+  root.replaceChildren();
+  const m = state.match;
+  const moment = m.moments.find((x) => x.id === state.selected);
+  const player = m.players.find((p) => p.id === state.selectedPlayer);
+  drawScene(root, moment, player);
+  $("pitch-title").textContent = moment ? `Replay – ${moment.title} (${moment.facts.minute})`
+    : player ? `Player – ${player.name} (${player.position}, ${player.team})` : "Shot map";
 
   const lg = $("pitch-legend");
   lg.replaceChildren();
@@ -169,7 +174,6 @@ function renderPitch() {
 /* One player's passes (progressive ones highlighted), shots and ball wins. */
 function drawPlayer(root, p) {
   const m = state.match, col = colorOf(p.side);
-  $("pitch-title").textContent = `Player – ${p.name} (${p.position}, ${p.team})`;
   const g = svg("g", {}, root);
   for (const e of m.events.filter((ev) => ev.pid === p.id)) {
     if (e.type === "pass" && e.ex != null) {
@@ -183,6 +187,72 @@ function drawPlayer(root, p) {
       svg("rect", { x: e.x - 1, y: e.y - 1, width: 2, height: 2, transform: `rotate(45 ${e.x} ${e.y})`, fill: col }, g);
     }
   }
+}
+
+/* ---------- broadcast stage ---------- */
+const TAGS = { goal: "GOAL", red_card: "RED CARD", big_chance: "BIG CHANCE", tactical_shift: "TACTICAL SHIFT", chaotic_spell: "CHAOS" };
+
+function probabilityBar(wp) {
+  const m = state.match;
+  const seg = (cls, color, value, label) => html("span", { class: `seg ${cls}`, style: `flex:${Math.max(value, 0.02)};background:${color}`, title: label },
+    value >= 0.12 ? [label] : []);
+  return html("div", { class: "prob" }, [
+    html("span", { class: "prob-title", text: "Win probability" }),
+    html("div", { class: "prob-bar" }, [
+      seg("h", m.home.color, wp.home, `${m.home.short} ${Math.round(wp.home * 100)}%`),
+      seg("d", NEUTRAL_COLOR, wp.draw, `Draw ${Math.round(wp.draw * 100)}%`),
+      seg("a", m.away.color, wp.away, `${m.away.short} ${Math.round(wp.away * 100)}%`),
+    ]),
+  ]);
+}
+
+function openStage(result) {
+  const m = state.match;
+  const moment = m.moments.find((x) => x.id === state.selected);
+  const player = m.players.find((p) => p.id === state.selectedPlayer);
+  const g = result.graphic;
+  const pitch = $("stage-pitch");
+  pitch.replaceChildren();
+  drawScene(pitch, moment, player);
+
+  const side = moment ? moment.side : player ? player.side : "home";
+  $("stage").style.setProperty("--accent-team", colorOf(side));
+  const score = (moment ? moment.facts.score_after : `${m.summary.score.home}-${m.summary.score.away}`).replace("-", " – ");
+  const tag = moment ? TAGS[moment.type] || "MOMENT" : player ? "PLAYER SPOTLIGHT" : "MATCH RECAP";
+
+  $("bug").replaceChildren(
+    html("span", { class: "bug-team", text: m.home.short, style: `border-color:${m.home.color}` }),
+    html("b", { class: "bug-score", text: score }),
+    html("span", { class: "bug-team", text: m.away.short, style: `border-color:${m.away.color}` }),
+    html("span", { class: "bug-clock", text: moment ? moment.facts.minute : "FT" }),
+  );
+
+  const v = result.verification;
+  const verified = v && !(v.issues || []).length && !((v.numeric_check || {}).unverified || []).length;
+  const wp = moment && moment.facts.win_probability_after;
+  const lower = $("lower");
+  lower.classList.remove("in");
+  lower.replaceChildren(
+    html("div", { class: "lower-main" }, [
+      html("span", { class: "lower-tag", text: tag }),
+      html("h3", { class: "lower-title", text: g.title }),
+      html("p", { class: "lower-line", text: g.line }),
+      ...(wp ? [probabilityBar(wp)] : []),
+    ]),
+    html("div", { class: "lower-chips" }, g.chips.map((c) =>
+      html("div", { class: "lower-chip" }, [
+        html("b", { text: c.value, class: c.value.length > 6 ? "long" : "" }), html("span", { text: c.label })]))),
+    html("span", { class: `lower-verified ${verified ? "ok" : "warn"}`,
+      text: verified ? "✔ Verified against the data" : "⚠ Check figures before airing" }),
+  );
+  $("stage-backdrop").hidden = false;
+  $("stage-close").focus();
+  requestAnimationFrame(() => requestAnimationFrame(() => lower.classList.add("in")));
+}
+
+function closeStage() {
+  $("stage-backdrop").hidden = true;
+  $("btn-broadcast").focus();
 }
 
 /* ---------- players ---------- */
@@ -378,6 +448,7 @@ const ROLE = {
 function setBusy(on) {
   state.busy = on;
   $("btn-recap").disabled = on;
+  $("btn-broadcast").disabled = on;
   $("btn-explain").disabled = on || !hasSelection();
   const steps = $("steps");
   steps.hidden = !on;
@@ -439,7 +510,7 @@ function renderResult(r) {
   box.hidden = false;
 }
 
-async function runAgents(momentId, playerId = null) {
+async function runAgents(momentId, playerId = null, opts = {}) {
   showError("");
   $("result").hidden = true;
   setBusy(true);
@@ -472,6 +543,10 @@ async function runAgents(momentId, playerId = null) {
     }
     if (!result) throw new Error("The agents returned no result");
     renderResult(result);
+    if (opts.broadcast) {
+      if (result.graphic) openStage(result);
+      else showError("The agents did not return a valid broadcast graphic. Try again.");
+    }
   } catch (err) {
     showError(err.message);
   } finally {
@@ -504,7 +579,11 @@ async function init() {
     const wanted = new URLSearchParams(location.search).get("moment");  // deep link, e.g. /?moment=m1
     if (wanted && state.match.moments.some((m) => m.id === wanted)) {
       select(wanted);
-      if (new URLSearchParams(location.search).get("explain") === "1") runAgents(wanted);  // e.g. /?moment=m7&explain=1
+      const q = new URLSearchParams(location.search);
+      if (q.get("broadcast") === "1") {  // e.g. /?moment=m7&broadcast=1
+        $("audience").value = "broadcaster";
+        runAgents(wanted, null, { broadcast: true });
+      } else if (q.get("explain") === "1") runAgents(wanted);  // e.g. /?moment=m7&explain=1
     }
   } catch (err) {
     showError(`Could not load the match: ${err.message}`);
@@ -516,6 +595,14 @@ $("btn-explain").addEventListener("click", () => {
   else if (state.selected) runAgents(state.selected);
 });
 $("btn-recap").addEventListener("click", () => runAgents(null));
+$("btn-broadcast").addEventListener("click", () => {
+  $("audience").value = "broadcaster";  // the graphic is a broadcaster deliverable
+  if (state.selectedPlayer !== null) runAgents(null, state.selectedPlayer, { broadcast: true });
+  else runAgents(state.selected, null, { broadcast: true });  // nothing selected = match recap graphic
+});
+$("stage-close").addEventListener("click", closeStage);
+$("stage-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeStage(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !$("stage-backdrop").hidden) closeStage(); });
 $("btn-new").addEventListener("click", async () => {
   try { setMatch(await api("/api/match/synthetic", { method: "POST" })); } catch (err) { showError(err.message); }
 });

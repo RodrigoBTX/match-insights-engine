@@ -36,6 +36,11 @@ StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)     
 - **Goal roles are computed, not inferred.** `goal_role` labels each goal (opening, equaliser, go-ahead,
   match-winning...) from the score line. Early on, a spotlight called an equaliser "the winning goal" and the
   Verifier approved it, so the role is now handed to the agents as a fact and the Verifier checks against it.
+- **Broadcast view.** For the current selection (a moment, a player or the whole match) the agents also write an
+  on-screen lower third: a news-style title, one on-air sentence and three figures, drawn over the replay with a
+  scorebug, a tag, a win-probability bar and a verification mark. The *Narrator* writes the graphic, so the
+  Verifier and the numeric guard check it like any other text; the Localiser translates it. Deep link:
+  `/?moment=m7&broadcast=1`. An incomplete graphic is never cached.
 - **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
 - **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
   event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture

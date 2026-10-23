@@ -130,6 +130,11 @@ def resolve(req: ExplainRequest) -> tuple[Match, dict | None, dict | None, tuple
     return match, moment, player, (req.match_id, req.moment_id, req.player_id, req.audience, req.language)
 
 
+def cacheable(req: ExplainRequest, result: dict) -> bool:
+    """A broadcaster result without its graphic is incomplete: do not cache it, so a retry can succeed."""
+    return req.audience != "broadcaster" or bool(result.get("graphic"))
+
+
 @app.post("/api/explain")
 async def explain(req: ExplainRequest) -> dict:
     match, moment, player, key = resolve(req)
@@ -144,7 +149,8 @@ async def explain(req: ExplainRequest) -> dict:
                 reset_client()
                 continue
             raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
-    CACHE[key] = result
+    if cacheable(req, result):
+        CACHE[key] = result
     return {**result, "cached": False}
 
 
@@ -161,7 +167,8 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
             try:
                 async for ev in run_pipeline(match, moment, MOMENTS[req.match_id], req.audience, req.language, player):
                     if ev["event"] == "result":
-                        CACHE[key] = ev["result"]
+                        if cacheable(req, ev["result"]):
+                            CACHE[key] = ev["result"]
                         ev = {"event": "result", "result": {**ev["result"], "cached": False}}
                     yield json.dumps(ev) + "\n"
                 return
