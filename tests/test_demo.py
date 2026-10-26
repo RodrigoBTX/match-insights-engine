@@ -138,12 +138,58 @@ def test_one_cold_start_failure_is_retried_and_then_succeeds(client, monkeypatch
     assert r["headline"] == "live" and r["cached"] is False and len(calls) == 2 and main.STATE["live"] is True
 
 
-def test_other_failures_are_not_masked_by_the_recording(client, monkeypatch):
+RAW = "<class 'agent_framework_foundry.FoundryChatClient'> Error code: 404 - DeploymentNotFound request_id abc123"
+
+
+@pytest.mark.parametrize("raw,reason", [
+    (RAW, "the AI model deployment was not found"),
+    ("Error code: 429 - Too Many Requests", "the AI service is busy right now"),
+    ("APIConnectionError: Connection error.", "the AI service could not be reached"),
+    ("list index out of range", "the agents could not complete the request"),
+])
+def test_failure_reasons_are_plain_sentences(raw, reason):
+    assert main.failure_reason(RuntimeError(raw)) == reason
+    assert main.failure_message(reason).endswith("Please try again in a moment.")
+
+
+def test_service_failure_serves_the_labelled_recording_and_never_the_raw_error(client, monkeypatch):
     async def broken(*_a, **_k):
-        raise RuntimeError("rate limit exceeded")
+        raise RuntimeError(RAW)
     monkeypatch.setattr(main, "run_explain", broken)
-    r = ask(client, language="pt")
-    assert r.status_code == 502 and "rate limit" in r.json()["detail"]
+    r = ask(client, language="pt").json()
+    assert r["recorded"] is True and r["fallback"]["reason"] == "the AI model deployment was not found"
+    assert "abc123" not in json.dumps(r) and "FoundryChatClient" not in json.dumps(r)
+
+
+def test_service_failure_without_a_recording_gives_a_clear_502(client, monkeypatch):
+    async def broken(*_a, **_k):
+        raise RuntimeError(RAW)
+    monkeypatch.setattr(main, "run_explain", broken)
+    r = ask(client, moment_id="m2", language="pt")
+    assert r.status_code == 502
+    assert r.json()["detail"] == "The AI model deployment was not found. Please try again in a moment."
+
+
+def test_stream_failure_after_progress_ends_with_a_clean_error_event(client, monkeypatch):
+    async def dies_midway(*_a, **_k):
+        yield {"event": "plan", "agents": ["Analyst"]}
+        raise RuntimeError(RAW)
+    monkeypatch.setattr(main, "run_pipeline", dies_midway)
+    body = {"match_id": MID, "moment_id": "m2", "audience": "coach", "language": "pt"}
+    ev = [json.loads(line) for line in client.post("/api/explain/stream", json=body).text.splitlines()]
+    assert [e["event"] for e in ev] == ["plan", "error"]
+    assert "abc123" not in ev[-1]["message"] and "class" not in ev[-1]["message"]
+
+
+@pytest.mark.parametrize("name,data,reason", [
+    ("e.json", b"", "the file is empty"),
+    ("t.txt", b"hello world", "it is not valid JSON"),
+    ("b.xml", b"<Games><Game>", "it is not valid XML"),
+])
+def test_upload_errors_say_what_is_wrong_in_plain_words(client, name, data, reason):
+    r = client.post("/api/match/upload", files={"file": (name, data)})
+    assert r.status_code == 422 and reason in r.json()["detail"]
+    assert "line 1" not in r.json()["detail"] and "char 0" not in r.json()["detail"]
 
 
 def test_stream_endpoint_emits_recorded_result_and_errors_as_events(client, monkeypatch):

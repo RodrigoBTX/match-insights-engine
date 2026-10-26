@@ -27,14 +27,23 @@ const colorOf = (side) => (side === "home" ? state.match.home.color : state.matc
 const nameOf = (side) => state.match[side].name;
 const clock = (t) => `${Math.floor(t)}'`;
 
+const OFFLINE = "Cannot reach the server. Check that it is still running, then reload the page.";
+const BROKEN = "The server sent an unreadable answer. Please try again.";
+// Browser-level failures (server down, connection dropped, bad JSON) get a plain sentence instead of "Failed to fetch".
+const friendly = (err) => (err instanceof TypeError ? OFFLINE : err instanceof SyntaxError ? BROKEN : err.message);
+
+async function failureText(res) {
+  let detail = res.statusText;
+  try { detail = (await res.json()).detail || detail; } catch (_) { /* keep statusText */ }
+  if (typeof detail !== "string") return "The request was not valid.";
+  return res.status >= 500 && detail === res.statusText ? "The server had a problem. Please try again." : detail;
+}
+
 async function api(path, options) {
-  const res = await fetch(path, options);
-  if (!res.ok) {
-    let detail = res.statusText;
-    try { detail = (await res.json()).detail || detail; } catch (_) { /* keep statusText */ }
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-  }
-  return res.json();
+  let res;
+  try { res = await fetch(path, options); } catch (err) { throw new Error(friendly(err)); }
+  if (!res.ok) throw new Error(await failureText(res));
+  try { return await res.json(); } catch (err) { throw new Error(friendly(err)); }
 }
 
 function showError(msg) {
@@ -740,7 +749,7 @@ async function runAgents(momentId, playerId = null, opts = {}) {
       body: JSON.stringify({ match_id: state.match.id, moment_id: momentId, player_id: playerId,
         audience: $("audience").value, language: $("language").value }),
     });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    if (!res.ok) throw new Error(await failureText(res));
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "", result = null;
@@ -762,14 +771,14 @@ async function runAgents(momentId, playerId = null, opts = {}) {
         else if (ev.event === "error") throw new Error(ev.message);
       }
     }
-    if (!result) throw new Error("The agents returned no result");
+    if (!result) throw new Error("The agents did not return a result. Please try again.");
     renderResult(result);
     if (opts.broadcast) {
       if (result.graphic) openStage(result);
       else showError("The agents did not return a valid broadcast graphic. Try again.");
     }
   } catch (err) {
-    showError(err.message);
+    showError(friendly(err));
   } finally {
     setBusy(false);
     refreshStatus();

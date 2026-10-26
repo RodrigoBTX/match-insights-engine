@@ -1,6 +1,7 @@
 """FastAPI service: match data, analytics and the multi-agent explanation endpoints."""
 import asyncio
 import json
+import logging
 import os
 import random
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 # DEMO_ONLY=1 never contacts Azure: only recorded explanations are shown. Without it the app tries live agents
 # and falls back to the recordings by itself when Azure sign-in is not available.
 DEMO_ONLY = os.environ.get("DEMO_ONLY") == "1"
+log = logging.getLogger("uvicorn.error")
 MAX_UPLOAD_BYTES = 25 * 2**20  # a full Opta F24 match is a few MB
 STATE: dict = {"live": None}  # None = not known yet, True/False once a check or a request has told us
 
@@ -143,7 +145,15 @@ async def upload(file: UploadFile) -> dict:
         else:
             match = from_statsbomb(json.loads(data), match_id=match_id)
     except (ValueError, KeyError, TypeError, AttributeError, ParseError) as exc:
-        raise HTTPException(422, f"Could not parse the event feed: {exc}") from exc
+        if not data.strip():
+            why = "the file is empty"
+        elif isinstance(exc, ParseError):
+            why = "it is not valid XML"
+        elif isinstance(exc, json.JSONDecodeError):
+            why = "it is not valid JSON"
+        else:
+            why = str(exc) or "unexpected content"
+        raise HTTPException(422, f"This file could not be read as an Opta F24 or StatsBomb event feed: {why}.") from exc
     return payload(register(match))
 
 
@@ -205,6 +215,22 @@ def recorded_fallback(key: tuple, reason: str) -> dict | None:
     return result
 
 
+def failure_reason(exc: BaseException) -> str:
+    """A short, plain reason for a failed run. The raw error (class names, request ids) goes to the server log only."""
+    text = f"{type(exc).__name__}: {exc}"
+    if any(k in text for k in ("DeploymentNotFound", "NotFoundError")):
+        return "the AI model deployment was not found"
+    if any(k in text for k in ("RateLimit", "429", "Too Many Requests")):
+        return "the AI service is busy right now"
+    if any(k in text for k in ("Connection error", "APIConnectionError", "Timeout", "timed out", "ConnectError")):
+        return "the AI service could not be reached"
+    return "the agents could not complete the request"
+
+
+def failure_message(reason: str) -> str:
+    return f"{reason[0].upper()}{reason[1:]}. Please try again in a moment."
+
+
 def unavailable_message(key: tuple, reason: str) -> str:
     scope = ("Recordings cover the original synthetic match only." if key[0] != demo.DEMO_MATCH_ID
              else "Recordings cover every moment, the match recap and the six highest-impact players of each team.")
@@ -237,7 +263,12 @@ async def explain(req: ExplainRequest) -> dict:
                 if fallback is None:
                     raise HTTPException(503, unavailable_message(key, reason)) from exc
                 return finalize(fallback, match, moment, player, req.language)
-            raise HTTPException(502, f"The agent pipeline failed: {exc}") from exc
+            log.error("agent pipeline failed", exc_info=exc)
+            reason = failure_reason(exc)
+            fallback = recorded_fallback(key, reason)
+            if fallback is None:
+                raise HTTPException(502, failure_message(reason)) from exc
+            return finalize(fallback, match, moment, player, req.language)
     STATE["live"] = True
     if cacheable(req, result):
         CACHE[key] = result
@@ -283,7 +314,12 @@ async def explain_stream(req: ExplainRequest) -> StreamingResponse:
                     STATE["live"] = False
                     yield fallback_events("Azure sign-in not available")
                     return
-                yield json.dumps({"event": "error", "message": f"The agent pipeline failed: {exc}"}) + "\n"
+                log.error("agent pipeline failed", exc_info=exc)
+                reason = failure_reason(exc)
+                if recorded_fallback(key, reason) is not None:
+                    yield fallback_events(reason)
+                else:
+                    yield json.dumps({"event": "error", "message": failure_message(reason)}) + "\n"
                 return
 
     return StreamingResponse(lines(), media_type="application/x-ndjson")
