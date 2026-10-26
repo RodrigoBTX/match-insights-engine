@@ -222,9 +222,14 @@ def player_facts(match: Match, player_id: int) -> dict | None:
         "cards": cards,
         "team_totals": totals,
         "share_of_team_pct": share,
-        "match_score": f"{match.home.name} {sum(1 for e in match.events if e.type == 'goal' and e.side == 'home')}"
-        f"-{sum(1 for e in match.events if e.type == 'goal' and e.side == 'away')} {match.away.name}",
+        "match_score": (
+            f"{match.home.name} {sum(1 for e in match.events if e.type == 'goal' and e.side == 'home')}"
+            f"-{sum(1 for e in match.events if e.type == 'goal' and e.side == 'away')} {match.away.name}"
+        ),
         "players_ranked_overall": len(ranked),
-        "impact_formula": "3*goals + 1.5*xG + 0.8*chances_created + 0.8*saves + 0.12*progressive_passes "
-        "+ 0.15*(tackles+interceptions) - 0.5*yellow - 2*red",
+        "impact_formula": (
+            "3*goals + 1.5*xG + 0.8*chances_created + 0.8*saves + "
+            "0.12*progressive_passes "
+            "+ 0.15*(tackles+interceptions) - 0.5*yellow - 2*red"
+        ),
     }

@@ -71,11 +71,17 @@ def test_each_field_is_checked_on_its_own_so_a_long_explanation_cannot_hide_a_on
     from app.agents import wording_issues
 
     final = {
-        "headline": "Chaos erupts as Northbridge FC storms back in the possession battle",
-        "explanation": "Northbridge FC and Eastport United both lost control of the ball for ten minutes.",
+        "headline": (
+            "Chaos erupts as Northbridge FC storms back in the possession battle"
+        ),
+        "explanation": (
+            "Northbridge FC and Eastport United both lost control of the ball for ten minutes."
+        ),
         "graphic": {
             "title": "Chaotic spell shakes the match",
-            "line": "From minute 35 to 45, Northbridge FC increased possession drastically.",
+            "line": (
+                "From minute 35 to 45, Northbridge FC increased possession drastically."
+            ),
         },
     }
     issues = wording_issues(final, "chaotic_spell", TEAMS)

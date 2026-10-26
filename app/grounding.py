@@ -53,7 +53,8 @@ def framing_issues(
     ]
     if sum(named) == 1:
         return [
-            "A chaotic spell concerns both teams, but the text names only one of them."
+            "A chaotic spell concerns both teams, but the text names only one "
+            "of them."
         ]
     return []
 

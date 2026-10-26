@@ -8,7 +8,8 @@ import logging
 import os
 from pathlib import Path
 import random
-from xml.etree.ElementTree import ParseError  # raised by defusedxml for malformed XML
+# raised by defusedxml for malformed XML
+from xml.etree.ElementTree import ParseError
 
 from fastapi import FastAPI
 from fastapi import HTTPException
@@ -142,9 +143,11 @@ def payload(match: Match) -> dict:
                 "xg": e.xg,
                 "player": e.player_name,
                 "pid": e.player_id,
-                "prog": e.type == "pass"
-                and e.outcome == "complete"
-                and pl.gain(e) >= pl.PROGRESSIVE_GAIN_M,
+                "prog": (
+                    e.type == "pass"
+                    and e.outcome == "complete"
+                    and pl.gain(e) >= pl.PROGRESSIVE_GAIN_M
+                ),
                 "seq": e.sequence_id,
             }
             for e in match.events

@@ -49,7 +49,8 @@ INFRA_MARKERS = (
     "temporarily",
 )
 
-ROLE_CLAIMS = [  # (what the text claims, regex, a substring the computed role must contain)
+# (what the text claims, regex, a substring the computed role must contain)
+ROLE_CLAIMS = [
     (
         "match-winning",
         re.compile(
@@ -270,9 +271,12 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
     else:
         match_line = f"a different synthetic match (seed {seed})"
         heldout = [
-            "> **Held-out measurement.** No prompt or rule was changed after looking at this match. It has the "
-            "same scripted story as the demo match (same minutes), only the random play and the figures differ, "
-            "so it is a partly independent check, not a different football match.",
+            "> **Held-out measurement.** No prompt or rule was changed after "
+            "looking at this match. It has the "
+            "same scripted story as the demo match (same minutes), only the "
+            "random play and the figures differ, "
+            "so it is a partly independent check, not a different football "
+            "match.",
             "",
         ]
     lines = [
@@ -280,13 +284,19 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
         "",
         f"Generated {date.today().isoformat()} with `{model}`. Command: `python -m scripts.quality_report`.",
         "",
-        "Every case ran **once**; the first result counts (no retries on quality, unlike the recordings in `demo/`, "
-        "which keep the best of up to four attempts). Only infrastructure failures such as rate limits were retried.",
+        "Every case ran **once**; the first result counts (no retries on "
+        "quality, unlike the recordings in `demo/`, "
+        "which keep the best of up to four attempts). Only infrastructure "
+        "failures such as rate limits were retried.",
         "",
-        "**What a pass means:** the verifier flagged nothing, every figure in the text traces to the data, the broadcast "
-        "graphic exists, a chaotic-spell text does not name just one team, and a goal headline or graphic does not call "
-        "the goal the winner, the equaliser or the opener when the computed goal role says otherwise. "
-        "**It does not mean the writing is good or useful.** Titles can still be generic and grammar can still slip.",
+        "**What a pass means:** the verifier flagged nothing, every figure in "
+        "the text traces to the data, the broadcast "
+        "graphic exists, a chaotic-spell text does not name just one team, and "
+        "a goal headline or graphic does not call "
+        "the goal the winner, the equaliser or the opener when the computed "
+        "goal role says otherwise. "
+        "**It does not mean the writing is good or useful.** Titles can still "
+        "be generic and grammar can still slip.",
         "",
         *heldout,
         "## Result",
@@ -352,7 +362,8 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
             + ", ".join(
                 f"{a} {statistics.mean(s):.1f} s" for a, s in per_agent.items()
             ),
-            "- Recorded results and the selection card are instant; only a new live explanation pays this cost.",
+            "- Recorded results and the selection card are instant; only a new "
+            "live explanation pays this cost.",
         ]
     lines += [
         "",
@@ -388,8 +399,10 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
         "",
         "## Limits of this measurement",
         "",
-        "- One synthetic match, one run per case: a different run can give a different result (the model varies).",
-        "- The checks find errors that can be detected by rules. They cannot judge clarity, usefulness or tone.",
+        "- One synthetic match, one run per case: a different run can give a "
+        "different result (the model varies).",
+        "- The checks find errors that can be detected by rules. They cannot "
+        "judge clarity, usefulness or tone.",
         "- English and Portuguese only; other languages were not measured.",
         "- Goal-role checks apply to English text only.",
     ]
@@ -421,7 +434,8 @@ async def main() -> int:
             MATCHES[demo.DEMO_MATCH_ID],
             MOMENTS[demo.DEMO_MATCH_ID],
         )
-    else:  # a match nothing was tuned on; moments are detected the same way the app does it
+    # a match nothing was tuned on; moments are detected the same way the app does it
+    else:
         match = generate_match(args.seed)
         moments = an.detect_moments(match)
     targets = build_targets(match, moments)

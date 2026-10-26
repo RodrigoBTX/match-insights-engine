@@ -495,7 +495,8 @@ def tactical_shifts(
             min(before["passes_total"], after["passes_total"])
             < MIN_SHIFT_WINDOW_PASSES
         ):
-            continue  # too little play on one side of the cut for a swing to mean anything
+            # too little play on one side of the cut for a swing to mean anything
+            continue
         delta = _shift_score(before, after)
         cands.append((abs(delta), t, delta, before, after))
     cands.sort(key=lambda c: c[0], reverse=True)

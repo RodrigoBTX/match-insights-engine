@@ -10,7 +10,8 @@ written against that documented layout and covered by a small fixture test, not
 by a full real match.
 """
 
-from defusedxml import ElementTree as ET  # hardened parser: uploads are untrusted
+# hardened parser: uploads are untrusted
+from defusedxml import ElementTree as ET
 
 from .generator import expected_goals
 from .schema import Event

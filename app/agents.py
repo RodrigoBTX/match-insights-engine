@@ -4,8 +4,10 @@ A SequentialBuilder workflow shares one conversation between four agents:
 
   Analyst   - calls deterministic analytics tools and returns grounded findings
   Narrator  - explains why the moment matters, using only those facts
-  Verifier  - checks every claim of the Narrator against the facts (hallucination guard)
-  Localiser - removes anything the Verifier flagged, then adapts audience and language
+  Verifier  - checks every claim of the Narrator against the facts
+  (hallucination guard)
+  Localiser - removes anything the Verifier flagged, then adapts audience and
+  language
 
 Numbers come from app.analytics (facts and tools); the agents interpret them.
 """
@@ -32,9 +34,18 @@ from .schema import Match
 load_dotenv()
 
 AUDIENCES = {
-    "casual_fan": "a casual fan: plain words, no jargon, one or two vivid sentences of context",
-    "coach": "a coach: tactical detail, pressing/transition/shape language, concrete numbers, what to change",
-    "broadcaster": "a TV commentator: a punchy on-air line plus one stat graphic caption, broadcast-ready",
+    "casual_fan": (
+        "a casual fan: plain words, no jargon, one or two vivid sentences of "
+        "context"
+    ),
+    "coach": (
+        "a coach: tactical detail, pressing/transition/shape language, concrete "
+        "numbers, what to change"
+    ),
+    "broadcaster": (
+        "a TV commentator: a punchy on-air line plus one stat graphic caption, "
+        "broadcast-ready"
+    ),
 }
 LANGUAGES = {
     "en": "English",
@@ -51,7 +62,8 @@ _client: FoundryChatClient | None = None
 def client() -> FoundryChatClient:
     global _client
     if _client is None:
-        # `az` is a slow subprocess on Windows; the default 10 s limit failed once on a cold first call
+        # `az` is a slow subprocess on Windows; the default 10 s limit failed
+        # once on a cold first call
         _client = FoundryChatClient(
             credential=AzureCliCredential(process_timeout=40)
         )
@@ -64,9 +76,11 @@ def reset_client() -> None:
 
 
 def warm_up() -> bool:
-    """Start `az` once at server start so the first request does not pay the cold start.
+    """Start `az` once at server start so the first request does not pay the
+    cold start.
 
-    Returns whether a token could be obtained, which is how the app knows if live agents can run here.
+    Returns whether a token could be obtained, which is how the app knows if
+    live agents can run here.
     """
     try:
         AzureCliCredential(process_timeout=40).get_token(
@@ -101,8 +115,10 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
     @tool(
         name="window_stats",
         description="Possession, shots, xG, final-third passes, field tilt, press height "
-        "(metres from own goal where the ball is won), sequences per minute and passes per sequence between "
-        "two match minutes. Keys are 'home' and 'away'. Use it to compare phases of the game.",
+        "(metres from own goal where the ball is won), sequences per minute and "
+        "passes per sequence between "
+        "two match minutes. Keys are 'home' and 'away'. Use it to compare "
+        "phases of the game.",
     )
     def window_stats(start_minute: float, end_minute: float) -> str:
         log(
@@ -114,7 +130,8 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
     @tool(
         name="sequence_details",
         description="Details of one possession sequence by id: kind "
-        "(counter-attack, sustained-pressure, set-piece...), passes, duration, metres gained, pass speed.",
+        "(counter-attack, sustained-pressure, set-piece...), passes, duration, "
+        "metres gained, pass speed.",
     )
     def sequence_details(sequence_id: int) -> str:
         log("sequence_details", {"sequence_id": sequence_id})
@@ -158,7 +175,8 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
     @tool(
         name="player_stats",
         description="Full statistics and impact score of one player by id: passes, "
-        "progressive passes, average pass quality (0-1), chances created, shots, xG, goals, top shot speed, "
+        "progressive passes, average pass quality (0-1), chances created, "
+        "shots, xG, goals, top shot speed, "
         "tackles, interceptions, saves, cards, and overall/in-team rank.",
     )
     def player_stats(player_id: int) -> str:
@@ -171,7 +189,8 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
     @tool(
         name="top_players",
         description="The n highest-impact players of a side ('home' or 'away'), "
-        "with their key numbers, to compare a player with teammates or opponents.",
+        "with their key numbers, to compare a player with teammates or "
+        "opponents.",
     )
     def top_players(side: str, n: int = 3) -> str:
         top = [s for s in stats.values() if s["side"] == side][
@@ -198,124 +217,186 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
 
 
 CHAOS_RULE = (
-    "If the event is 'chaotic_spell', the headline, the explanation and any graphic title or line must describe a "
-    "loss of control by BOTH teams (possession changing hands more often, shorter moves, more turnovers): never "
-    "present it as one team raising its pressure, possession or intensity. The headline and the graphic title "
-    "must name BOTH teams or NEITHER (for example 'Both teams lose control for ten minutes'), never just one. "
+    "If the event is 'chaotic_spell', the headline, the explanation and any "
+    "graphic title or line must describe a "
+    "loss of control by BOTH teams (possession changing hands more often, "
+    "shorter moves, more turnovers): never "
+    "present it as one team raising its pressure, possession or intensity. The "
+    "headline and the graphic title "
+    "must name BOTH teams or NEITHER (for example 'Both teams lose control for "
+    "ten minutes'), never just one. "
     "If the event is 'tactical_shift', name the team that gained ground. "
 )
 
 GRAPHIC_RULE = (
-    ' The audience is a broadcaster, so ALSO include a key "graphic" for an on-screen lower third: '
-    '{"title": "max 6 words", "line": "one on-air sentence of max 20 words"}. Do not write stat cards: the three '
-    "figures shown beside the text are computed from the data. Use only figures that appear in the conversation. "
-    'The title must state the news itself (who did what), never a generic label such as "Key Match Stats", "Moment '
+    ' The audience is a broadcaster, so ALSO include a key "graphic" for an '
+    'on-screen lower third: '
+    '{"title": "max 6 words", "line": "one on-air sentence of max 20 words"}. '
+    'Do not write stat cards: the three '
+    "figures shown beside the text are computed from the data. Use only figures "
+    "that appear in the conversation. "
+    'The title must state the news itself (who did what), never a generic label '
+    'such as "Key Match Stats", "Moment '
     'That Mattered" or "Match Summary". ' + CHAOS_RULE
 )
 
 LOCALISER_GRAPHIC = (
-    ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": "..."}, copied from the "graphic" '
-    "object in the Narrator JSON and translated, with exactly the same figures. Never omit it."
+    ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": '
+    '"..."}, copied from the "graphic" '
+    "object in the Narrator JSON and translated, with exactly the same figures. "
+    "Never omit it."
 )
 
 GOAL_RULE = (
-    "Say what a goal meant only from its goal_role (or goals[].role): never call a goal the winner, the "
-    "equaliser or the opener because of the final score or the number of goals a player scored. "
+    "Say what a goal meant only from its goal_role (or goals[].role): never "
+    "call a goal the winner, the "
+    "equaliser or the opener because of the final score or the number of goals "
+    "a player scored. "
 )
 
 NAMING = (
-    "Always name teams and players (facts.teams maps the home/away keys to team names); never write 'home' "
+    "Always name teams and players (facts.teams maps the home/away keys to team "
+    "names); never write 'home' "
     "or 'away' as if it were a name. "
 )
 
 ANALYST_PROMPT = (
-    "You are the Analyst agent of a football match-intelligence system. The conversation starts with verified "
-    "facts about one match moment. Use your tools to check context (e.g. compare the 10 minutes before with the "
-    "10 minutes after, inspect the sequence). Then reply with ONLY a JSON object: "
-    '{"findings": ["3 to 5 short, factual findings"], "stat_chips": [{"label": "...", "value": "..."}]} '
-    "with at most 5 stat_chips. Copy numbers exactly from the facts or tool results; never invent numbers. "
+    "You are the Analyst agent of a football match-intelligence system. The "
+    "conversation starts with verified "
+    "facts about one match moment. Use your tools to check context (e.g. "
+    "compare the 10 minutes before with the "
+    "10 minutes after, inspect the sequence). Then reply with ONLY a JSON "
+    "object: "
+    '{"findings": ["3 to 5 short, factual findings"], "stat_chips": [{"label": '
+    '"...", "value": "..."}]} '
+    "with at most 5 stat_chips. Copy numbers exactly from the facts or tool "
+    "results; never invent numbers. "
     + NAMING
     + "last_10_min_before_moment covers the 10 minutes before the moment and excludes the moment itself. "
-    "Say what the data explains: why this moment mattered (score, win probability), whether it went with or "
+    "Say what the data explains: why this moment mattered (score, win "
+    "probability), whether it went with or "
     "against the run of play, and what changed tactically. "
     + GOAL_RULE
     + "For event 'tactical_shift' explain the swing using "
-    "field tilt (share of final-third passes), press height (metres from own goal where the ball is won) and "
-    "likely_trigger; for 'chaotic_spell' explain the loss of control by BOTH teams: more sequences per minute, "
-    "fewer passes per sequence and more turnovers than ten_minutes_before_spell and the rest of the match. A "
-    "chaotic spell is not one team imposing itself: never say a team raised its pressure or possession unless "
-    "ten_minutes_before_spell and during_spell show that rise. Report only what the numbers show; do not claim a "
-    "cause that is not in likely_trigger. Ignore the delivery request; it is for the Localiser."
+    "field tilt (share of final-third passes), press height (metres from own "
+    "goal where the ball is won) and "
+    "likely_trigger; for 'chaotic_spell' explain the loss of control by BOTH "
+    "teams: more sequences per minute, "
+    "fewer passes per sequence and more turnovers than ten_minutes_before_spell "
+    "and the rest of the match. A "
+    "chaotic spell is not one team imposing itself: never say a team raised its "
+    "pressure or possession unless "
+    "ten_minutes_before_spell and during_spell show that rise. Report only what "
+    "the numbers show; do not claim a "
+    "cause that is not in likely_trigger. Ignore the delivery request; it is "
+    "for the Localiser."
 )
 NARRATOR_PROMPT = (
-    "You are the Narrator agent. Using ONLY the facts and the Analyst's findings in the conversation, write a "
-    "clear, neutral explanation of WHY the moment matters. Reply with ONLY a JSON object: "
-    '{"headline": "max 12 words", "explanation": "2-4 sentences", "tactical_takeaway": "1 sentence"}. '
+    "You are the Narrator agent. Using ONLY the facts and the Analyst's "
+    "findings in the conversation, write a "
+    "clear, neutral explanation of WHY the moment matters. Reply with ONLY a "
+    "JSON object: "
+    '{"headline": "max 12 words", "explanation": "2-4 sentences", '
+    '"tactical_takeaway": "1 sentence"}. '
     "Do not add numbers or causes that are not in the conversation. "
     + CHAOS_RULE
     + "Ignore the delivery request."
 )
 RECAP_NARRATOR_PROMPT = (
-    "You are the Narrator agent. Using ONLY the match facts in the conversation, write a recap that tells the "
-    "story of the game (control, the shocks, the turning point, the finish). Reply with ONLY a JSON object: "
+    "You are the Narrator agent. Using ONLY the match facts in the "
+    "conversation, write a recap that tells the "
+    "story of the game (control, the shocks, the turning point, the finish). "
+    "Reply with ONLY a JSON object: "
     '{"headline": "max 12 words", "explanation": "a recap of 5-7 sentences", '
     '"tactical_takeaway": "the single insight that decided the game"}. '
-    "Do not add numbers or causes that are not in the facts. Ignore the delivery request."
+    "Do not add numbers or causes that are not in the facts. Ignore the "
+    "delivery request."
 )
 PLAYER_ANALYST_PROMPT = (
-    "You are the Player Spotlight analyst. The conversation starts with verified facts about one player. Use "
-    "your tools to compare the player with teammates (top_players for their side) and with the opposition "
+    "You are the Player Spotlight analyst. The conversation starts with "
+    "verified facts about one player. Use "
+    "your tools to compare the player with teammates (top_players for their "
+    "side) and with the opposition "
     "(top_players for the other side). Then reply with ONLY a JSON object: "
-    '{"findings": ["3 to 5 short, factual findings"], "stat_chips": [{"label": "...", "value": "..."}]} '
-    "with at most 5 stat_chips. Copy numbers exactly from the facts or tool results; never invent numbers. "
+    '{"findings": ["3 to 5 short, factual findings"], "stat_chips": [{"label": '
+    '"...", "value": "..."}]} '
+    "with at most 5 stat_chips. Copy numbers exactly from the facts or tool "
+    "results; never invent numbers. "
     + NAMING
     + "Do not do arithmetic: use ready-made fields such as ball_wins and share_of_team_pct instead of adding or "
     "dividing numbers yourself. "
     + GOAL_RULE
     + "Cover what the player did (creating chances, progressing the ball, finishing, winning the ball), how "
-    "they rank in their team and in the match, and how much of the team's output they account for. Impact is "
-    "a formula-based score (impact_formula in the facts), not a rating from a human; say so if you cite it. "
+    "they rank in their team and in the match, and how much of the team's "
+    "output they account for. Impact is "
+    "a formula-based score (impact_formula in the facts), not a rating from a "
+    "human; say so if you cite it. "
     "Ignore the delivery request; it is for the Localiser."
 )
 PLAYER_NARRATOR_PROMPT = (
-    "You are the Narrator agent writing a player spotlight. Using ONLY the facts and the Analyst's findings in "
-    "the conversation, explain HOW this player influenced the match and what kind of player the numbers show. "
+    "You are the Narrator agent writing a player spotlight. Using ONLY the "
+    "facts and the Analyst's findings in "
+    "the conversation, explain HOW this player influenced the match and what "
+    "kind of player the numbers show. "
     "Reply with ONLY a JSON object: "
-    '{"headline": "max 12 words", "explanation": "2-4 sentences", "tactical_takeaway": "1 sentence on how '
-    'the team used or could use this player"}. Do not add numbers or claims that are not in the conversation. '
-    "A rank or a comparison (more than, fewer than) needs both values in the conversation. "
+    '{"headline": "max 12 words", "explanation": "2-4 sentences", '
+    '"tactical_takeaway": "1 sentence on how '
+    'the team used or could use this player"}. Do not add numbers or claims '
+    'that are not in the conversation. '
+    "A rank or a comparison (more than, fewer than) needs both values in the "
+    "conversation. "
     + GOAL_RULE
     + "Ignore the delivery request."
 )
 VERIFIER_PROMPT = (
-    "You are the Verifier agent, the hallucination guard. Check the Narrator's JSON claim by claim against the "
-    "facts (first message) and the Analyst findings. A claim is an issue if a number, name, minute or causal "
-    "statement is not supported by them. A claim that something rose, fell, increased, decreased, improved or "
-    "dropped is supported only if BOTH the earlier and the later value are in the facts and move in that "
-    "direction; a lone value does not show a change. Describing a goal as the opener, the equaliser, "
-    "go-ahead or match-winning is supported only if it matches goal_role or goals[].role in the facts; if the "
-    'text gives a goal a role that differs from it, that is an issue. If the Narrator JSON has a "graphic" '
-    "object, check its title and line exactly like the rest (the figure cards beside it are computed from the "
+    "You are the Verifier agent, the hallucination guard. Check the Narrator's "
+    "JSON claim by claim against the "
+    "facts (first message) and the Analyst findings. A claim is an issue if a "
+    "number, name, minute or causal "
+    "statement is not supported by them. A claim that something rose, fell, "
+    "increased, decreased, improved or "
+    "dropped is supported only if BOTH the earlier and the later value are in "
+    "the facts and move in that "
+    "direction; a lone value does not show a change. Describing a goal as the "
+    "opener, the equaliser, "
+    "go-ahead or match-winning is supported only if it matches goal_role or "
+    "goals[].role in the facts; if the "
+    'text gives a goal a role that differs from it, that is an issue. If the '
+    'Narrator JSON has a "graphic" '
+    "object, check its title and line exactly like the rest (the figure cards "
+    "beside it are computed from the "
     "data; they are not yours to check). Reply with ONLY a JSON object: "
-    '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": ["short description of each '
-    'UNSUPPORTED claim"]}. "issues" must contain ONLY claims that are not supported or are contradicted. Never '
-    'list a claim that is fine, never write "no issue" or "matches the facts" in it, and never list comments or '
-    'structural remarks. If everything is supported, return verdict "verified" and an empty list. '
+    '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": '
+    '["short description of each '
+    'UNSUPPORTED claim"]}. "issues" must contain ONLY claims that are not '
+    'supported or are contradicted. Never '
+    'list a claim that is fine, never write "no issue" or "matches the facts" '
+    'in it, and never list comments or '
+    'structural remarks. If everything is supported, return verdict "verified" '
+    'and an empty list. '
     "Be strict but do not flag harmless paraphrase."
 )
 LOCALISER_PROMPT = (
-    "You are the Personalisation agent. Take the Narrator's JSON. If the Verifier listed issues, drop or correct "
-    "exactly those claims. Then rewrite it for the audience and language requested in the delivery request, "
-    "keeping every remaining number and fact unchanged. Reply with ONLY a JSON object: "
-    '{"headline": "...", "explanation": "...", "tactical_takeaway": "...", "stat_chips": [{"label": "...", '
-    '"value": "..."}]}. If the Analyst produced stat_chips, translate their labels and keep their values; '
-    'otherwise return an empty stat_chips list. If the Narrator JSON has a "graphic" object, include it too, '
-    "translated, with the same keys and unchanged figures (title, line, chips[].label, chips[].value)."
+    "You are the Personalisation agent. Take the Narrator's JSON. If the "
+    "Verifier listed issues, drop or correct "
+    "exactly those claims. Then rewrite it for the audience and language "
+    "requested in the delivery request, "
+    "keeping every remaining number and fact unchanged. Reply with ONLY a JSON "
+    "object: "
+    '{"headline": "...", "explanation": "...", "tactical_takeaway": "...", '
+    '"stat_chips": [{"label": "...", '
+    '"value": "..."}]}. If the Analyst produced stat_chips, translate their '
+    'labels and keep their values; '
+    'otherwise return an empty stat_chips list. If the Narrator JSON has a '
+    '"graphic" object, include it too, '
+    "translated, with the same keys and unchanged figures (title, line, "
+    "chips[].label, chips[].value)."
 )
 
 
 def normalize_graphic(raw) -> dict | None:
-    """Validate the lower-third graphic an agent returned; anything malformed is dropped, not guessed."""
+    """Validate the lower-third graphic an agent returned; anything malformed is
+    dropped, not guessed."""
     if not isinstance(raw, dict):
         return None
     title, line, chips = raw.get("title"), raw.get("line"), raw.get("chips")
@@ -344,7 +425,8 @@ def normalize_graphic(raw) -> dict | None:
 def wording_issues(
     final: dict, event: str | None, teams: list[tuple[str, ...]]
 ) -> list[str]:
-    """Framing check applied to each field on its own: a long explanation that mentions both teams must not
+    """Framing check applied to each field on its own: a long explanation that
+    mentions both teams must not
     hide a headline or a graphic line that names only one."""
     graphic = final.get("graphic") or {}
     fields = {
@@ -361,7 +443,8 @@ def wording_issues(
 
 
 def narrated_text(final: dict) -> str:
-    """Every piece of text shown to the user, so the numeric guard sees all of it (graphic included)."""
+    """Every piece of text shown to the user, so the numeric guard sees all of
+    it (graphic included)."""
     graphic = final.get("graphic") or {}
     return " ".join(
         [
@@ -383,16 +466,19 @@ def _delivery(audience: str, language: str) -> str:
     return f"Delivery request (for the Localiser): audience = {AUDIENCES[audience]}; language = {LANGUAGES[language]}."
 
 
-MAX_REVISIONS = 1  # one revision at most: it costs a full second pass, so it must stay the exception
+# one revision at most: it costs a full second pass, so it must stay the exception
+MAX_REVISIONS = 1
 
-# A line that ends by saying there is no issue is a comment on a supported claim, not an issue.
+# A line that ends by saying there is no issue is a comment on a supported
+# claim, not an issue.
 _NOT_AN_ISSUE = re.compile(
     r"\bno (strict |further |other |real )?issues?( here| found)?\W*$", re.I
 )
 
 
 def moment_guidance(match: Match, moment: dict | None) -> str:
-    """Extra instruction for the one kind of moment the models keep framing around a single team."""
+    """Extra instruction for the one kind of moment the models keep framing
+    around a single team."""
     if moment is None or moment["facts"].get("event") != "chaotic_spell":
         return ""
     minutes = str(moment["facts"].get("spell_minutes", "")).replace(
@@ -407,17 +493,16 @@ def moment_guidance(match: Match, moment: dict | None) -> str:
 
 def real_issues(issues) -> list[str]:
     return [
-        str(i)
-        for i in (issues or [])
-        if not _NOT_AN_ISSUE.search(str(i).strip())
+        str(i) for i in issues or [] if not _NOT_AN_ISSUE.search(str(i).strip())
     ]
 
 
 def result_problems(result: dict, audience: str) -> list[str]:
-    """Everything the automatic checks object to, as sentences the Narrator can act on."""
+    """Everything the automatic checks object to, as sentences the Narrator can
+    act on."""
     v = result.get("verification") or {}
     problems = [
-        f"The checks flagged: {issue}" for issue in (v.get("issues") or [])
+        f"The checks flagged: {issue}" for issue in v.get("issues") or []
     ]
     untraced = (v.get("numeric_check") or {}).get("unverified") or []
     if untraced:
@@ -434,7 +519,8 @@ def result_problems(result: dict, audience: str) -> list[str]:
 
 def revision_request(problems: list[str]) -> str:
     return (
-        "\n\nREVISION REQUEST. A previous draft of this explanation was rejected by the automatic checks:\n"
+        "\n\nREVISION REQUEST. A previous draft of this explanation was "
+        "rejected by the automatic checks:\n"
         + "\n".join(f"- {p}" for p in problems)
         + "\nWrite a corrected version. Fix exactly these points, use only figures from the facts and tool "
         "results, and keep the same JSON format."
@@ -452,8 +538,10 @@ async def run_pipeline(
 ) -> AsyncIterator[dict]:
     """Yield progress events, then a final {"event": "result", ...}.
 
-    When the automatic checks object to the first draft, the explanation is rewritten once with the reasons
-    ("verify -> revise"). The better of the two drafts is kept and the result says what happened.
+    When the automatic checks object to the first draft, the explanation is
+    rewritten once with the reasons
+    ("verify -> revise"). The better of the two drafts is kept and the result
+    says what happened.
     """
     first: dict | None = None
     for attempt in (1, 2):
@@ -468,7 +556,8 @@ async def run_pipeline(
             break
         except (
             ValueError
-        ):  # json.JSONDecodeError: the model returned malformed JSON; one more attempt, then fail
+        # json.JSONDecodeError: the model returned malformed JSON; one more attempt, then fail
+        ):
             if attempt == 2:
                 raise
             yield {
@@ -535,7 +624,8 @@ async def _run_once(
     player: dict | None = None,
     feedback: list[str] | None = None,
 ) -> AsyncIterator[dict]:
-    """One pass of the four-agent workflow (the unit that run_pipeline may repeat)."""
+    """One pass of the four-agent workflow (the unit that run_pipeline may
+    repeat)."""
     trace: list[dict] = []
     evidence: list[str] = []
     c = client()
@@ -616,7 +706,8 @@ async def _run_once(
     ).build()
     started: dict[str, float] = {}
     texts: dict[str, str] = {}
-    # `task` (the facts) alone feeds the numeric guard below: the feedback text must not make a figure "allowed"
+    # `task` (the facts) alone feeds the numeric guard below: the feedback text
+    # must not make a figure "allowed"
     prompt = (
         task
         + "\n\n"
@@ -649,8 +740,10 @@ async def _run_once(
     if audience == "broadcaster":
         graphic = normalize_graphic(final.get("graphic"))
         if graphic is None and language == "en":
-            # the Localiser left it out: the Narrator's English graphic is already the final text in English.
-            # For other languages there is no safe fallback (it would be untranslated), so it stays None.
+            # the Localiser left it out: the Narrator's English graphic is
+            # already the final text in English.
+            # For other languages there is no safe fallback (it would be
+            # untranslated), so it stays None.
             try:
                 graphic = normalize_graphic(
                     parse_json(texts["Narrator"]).get("graphic")

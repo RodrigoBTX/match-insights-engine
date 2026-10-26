@@ -15,9 +15,11 @@ def res(headline="h", issues=(), untraced=(), graphic=True, trace=None):
             "issues": list(issues),
             "numeric_check": {"checked": 5, "unverified": list(untraced)},
         },
-        "trace": trace
-        if trace is not None
-        else [{"agent": "Narrator", "seconds": 1.0}],
+        "trace": (
+            trace
+            if trace is not None
+            else [{"agent": "Narrator", "seconds": 1.0}]
+        ),
     }
 
 
