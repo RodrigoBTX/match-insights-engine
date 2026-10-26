@@ -151,7 +151,7 @@ def _player(f: dict, L: dict) -> list[dict]:
     return cards
 
 
-def build_chips(match: Match, moment: dict | None, player: dict | None, language: str) -> list[dict]:
+def _build_chips(match: Match, moment: dict | None, player: dict | None, language: str) -> list[dict]:
     """Three key figures for the current selection, with team names and both sides of a comparison."""
     L = LABELS.get(language, LABELS["en"])
     try:
@@ -174,3 +174,9 @@ def build_chips(match: Match, moment: dict | None, player: dict | None, language
     except (KeyError, TypeError):  # facts from an unusual feed: show nothing rather than a wrong figure
         return []
     return []
+
+def build_chips(match: Match, moment: dict | None, player: dict | None, language: str) -> list[dict]:
+    """The cards, each with a language-neutral `key` so the UI can attach the same explanation in every language."""
+    L = LABELS.get(language, LABELS["en"])
+    key_of = {label: key for key, label in L.items()}
+    return [{**c, "key": key_of.get(c["label"])} for c in _build_chips(match, moment, player, language)]

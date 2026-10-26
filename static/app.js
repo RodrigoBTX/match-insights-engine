@@ -52,12 +52,12 @@ function renderScoreboard() {
     ? [html("span", { class: "swatch", style: `background:${m.home.color}` }), html("span", { class: "team-name", text: m.home.name })]
     : [html("span", { class: "team-name", text: m.away.name }), html("span", { class: "swatch", style: `background:${m.away.color}` })]);
   box.append(team("home"), html("div", { class: "score", text: `${s.score.home} – ${s.score.away}` }), team("away"));
-  const stat = (label, h, a) => html("div", { class: "stat" }, [html("b", { text: `${h} – ${a}` }), html("span", { text: label })]);
+  const stat = (label, h, a, tip) => html("div", { class: "stat", title: tip }, [html("b", { text: `${h} – ${a}` }), html("span", { text: label })]);
   box.append(html("div", { class: "statrow" }, [
-    stat("Possession %", s.possession_pct.home, s.possession_pct.away),
-    stat("Shots (on target)", `${s.shots.home} (${s.on_target.home})`, `${s.shots.away} (${s.on_target.away})`),
-    stat("Expected goals", s.xg.home.toFixed(2), s.xg.away.toFixed(2)),
-    stat("Cards Y/R", `${s.cards.home.yellow}/${s.cards.home.red}`, `${s.cards.away.yellow}/${s.cards.away.red}`),
+    stat("Possession %", s.possession_pct.home, s.possession_pct.away, "Share of the ball held by each team (home – away)."),
+    stat("Shots (on target)", `${s.shots.home} (${s.on_target.home})`, `${s.shots.away} (${s.on_target.away})`, "Shots attempted, with those on target in brackets (home – away)."),
+    stat("Expected goals", s.xg.home.toFixed(2), s.xg.away.toFixed(2), "xG: chance quality of all shots, added up. Higher means better chances, not more goals."),
+    stat("Cards Y/R", `${s.cards.home.yellow}/${s.cards.home.red}`, `${s.cards.away.yellow}/${s.cards.away.red}`, "Yellow / red cards (home – away)."),
   ]));
   $("source").textContent = `${m.source} (${m.competition})`;
 }
@@ -278,7 +278,7 @@ function renderPlayers() {
       ["G", "Goals"], ["xG", "Expected goals: quality of the shots taken"], ["CC", "Chances created: last pass before a shot"],
       ["Prog", "Progressive passes: 10 m or more towards goal"]];
     col.appendChild(html("div", { class: "prow head" }, heads.map(([t, tip]) => html("span", { text: t, title: tip }))));
-    for (const p of m.players.filter((q) => q.side === side).slice(0, 6)) {
+    for (const p of m.players.filter((q) => q.side === side)) {
       const row = html("button", { class: "prow", type: "button", "aria-pressed": p.id === state.selectedPlayer,
         title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.ball_wins} ball wins${p.saves ? `, ${p.saves} saves` : ""}` }, [
         html("span", { class: "rank", text: String(p.rank_in_team) }),
@@ -324,7 +324,7 @@ function renderControl() {
     const cell = svg("g", { class: "cell", tabindex: 0, role: "button", "aria-pressed": picked,
       "aria-label": `${w.start}' to ${w.end}': ${stateLabel(w.state)}` }, root);
     const r = svg("rect", { x: x + 1, y, width: cw - 2, height: h, rx: 4, fill, "fill-opacity": w.state === "balanced" ? 0.55 : 0.9,
-      stroke: picked ? "#fff" : "none", "stroke-width": picked ? 2.5 : 0 }, cell);
+      stroke: picked ? "var(--text)" : "none", "stroke-width": picked ? 2.5 : 0 }, cell);
     svg("title", {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)} (select for details)`);
     cell.addEventListener("click", () => selectWindow(i));
     cell.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectWindow(i); } });
@@ -414,7 +414,7 @@ function renderXG() {
   for (const side of ["home", "away"]) {
     const pts = m.xg.map((p) => `${x(p.minute)},${y(p[side])}`).join(" ");
     svg("polyline", { points: pts, fill: "none", stroke: colorOf(side), "stroke-width": 2.5, "stroke-linejoin": "round" }, root);
-    svg("text", { x: x(92) + 6, y: y(last[side]) + 4, style: `fill:${colorOf(side)}`, "font-weight": 700 }, root, `${m[side].short} ${last[side].toFixed(2)}`);
+    svg("text", { x: x(92) + 6, y: y(last[side]) + 4, style: "fill:var(--text)", "font-weight": 700 }, root, `${m[side].short} ${last[side].toFixed(2)}`);
   }
   for (const mo of m.moments.filter((q) => q.type === "goal")) {
     const p = m.xg[Math.min(mo.minute, 92)];
@@ -449,7 +449,29 @@ function hasSelection() {
   return state.selected !== null || state.selectedPlayer !== null;
 }
 
-const chipEl = (c) => html("div", { class: "statchip" }, [
+/* One-line meaning of each figure card, keyed by the language-neutral chip key (shown as a tooltip). */
+const GLOSSARY = {
+  possession: "Share of the ball held by each team.",
+  possession_prev: "Share of the ball held by each team in the 10 minutes before this moment.",
+  shots: "Shots attempted by each team.",
+  shots_prev: "Shots attempted in the 10 minutes before this moment.",
+  xg: "Expected goals: how likely each shot was to score, added up. It measures chance quality, not the result.",
+  win_prob: "Estimated chance of each result, recomputed from the match state.",
+  shot_speed: "Speed of the shot at the moment it was struck.",
+  red_cards: "Red cards shown to each team so far.",
+  territory: "Share of all final-third passes made by this team: who is playing in the attacking area.",
+  press_height: "Average distance from its own goal where the team wins the ball back (higher = more aggressive press).",
+  possession_changes: "How many times the ball changed hands: more means a more chaotic spell.",
+  passes_per_sequence: "Average passes before possession is lost: fewer means more disorder.",
+  turnovers: "Times a team lost the ball.",
+  goals: "Goals scored by this player.",
+  chances_created: "Last pass before a shot.",
+  progressive_passes: "Passes that move the ball 10 m or more towards the opponent's goal.",
+  ball_wins: "Tackles and interceptions that won the ball back.",
+  saves: "Shots on target stopped by the goalkeeper.",
+  impact: "Formula score from the player's actions, not a human rating.",
+};
+const chipEl = (c) => html("div", { class: "statchip", title: GLOSSARY[c.key] || "" }, [
   html("b", { text: String(c.value) }), html("span", { text: String(c.label) }),
   ...(c.detail ? [html("small", { text: c.detail })] : [])]);
 
@@ -665,6 +687,9 @@ function verificationBadge(v) {
     ...parts.map((p) => html("span", { text: p })),
     ...issues.map((i) => html("span", { text: `• ${i}` })),
   ]);
+  const what = html("button", { type: "button", class: "linklike", text: "What does this mean?" });
+  what.addEventListener("click", () => { openAbout(); $("about-trust")?.scrollIntoView(); });
+  box.append(what);
   return box;
 }
 
@@ -676,9 +701,7 @@ function renderResult(r) {
   const badge = verificationBadge(r.verification);
   if (badge) box.append(badge);
   if (r.stat_chips?.length) {
-    box.append(html("div", { class: "chips" }, r.stat_chips.map((c) =>
-      html("div", { class: "statchip" }, [html("b", { text: String(c.value) }), html("span", { text: String(c.label) }),
-        ...(c.detail ? [html("small", { text: c.detail })] : [])]))));
+    box.append(html("div", { class: "chips" }, r.stat_chips.map(chipEl)));
   }
   if (r.findings?.length) {
     box.append(html("details", {}, [html("summary", { text: "Grounded findings (from the data)" }),
@@ -810,6 +833,20 @@ function closeAbout() {
   $("btn-about").focus();
 }
 $("btn-about").addEventListener("click", openAbout);
+
+/* ---------- light / dark theme (the early script in index.html applies the saved choice before first paint) ---------- */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const btn = $("btn-theme");
+  btn.textContent = theme === "light" ? "☾ Dark mode" : "☀ Light mode";
+  btn.setAttribute("aria-label", theme === "light" ? "Switch to dark mode" : "Switch to light mode");
+}
+applyTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+$("btn-theme").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  applyTheme(next);
+  try { localStorage.setItem("theme", next); } catch (_) { /* the choice just is not remembered */ }
+});
 $("about-close").addEventListener("click", closeAbout);
 $("about-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeAbout(); });
 $("stage-close").addEventListener("click", closeStage);

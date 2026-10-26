@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Match Insights Engine</title>
+<script>/* apply the saved (or the system) theme before the first paint, so the page does not flash */
+try { var t = localStorage.getItem("theme");
+  if (!t && window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) t = "light";
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) { /* storage blocked: default theme */ }</script>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -18,6 +22,7 @@
   <div class="actions">
     <span id="mode" class="mode" role="status">● Checking agents…</span>
     <button id="btn-about" class="ghost" type="button">How it works</button>
+    <button id="btn-theme" class="ghost theme-toggle" type="button" aria-label="Switch between the light and the dark theme">☀ Light mode</button>
     <button id="btn-new" class="ghost" type="button">New synthetic match</button>
     <label class="ghost file" title="Opta F24 XML or StatsBomb-style event JSON">
       Load real event feed
@@ -66,7 +71,7 @@
       <div class="players" id="players"></div>
       <p class="hint note">Impact is a formula score (goals, xG, chances created, progressive passes, ball wins,
         cards), not a human rating. G = goals, CC = chances created, Prog = progressive passes (10 m or more
-        towards goal). Select a player to see their passes and shots, then ask for a spotlight.</p>
+        towards goal). Select a player to see their passes and shots, then ask for a spotlight. Every player with recorded actions is listed; in the recorded demo, spotlights exist for the six highest-impact players of each team and the others need the live agents.</p>
     </div>
 
     <div class="grid2">
@@ -90,20 +95,21 @@
       <div id="info" class="info" aria-live="polite"></div>
 
       <div class="controls">
-        <label>Audience
+        <label title="Who the explanation is written for">Audience
           <select id="audience">
             <option value="casual_fan">Casual fan</option>
             <option value="coach">Coach</option>
             <option value="broadcaster">Broadcaster</option>
           </select>
         </label>
-        <label>Language
+        <label title="The text is translated; the figures stay the same">Language
           <select id="language"></select>
         </label>
       </div>
       <div class="buttons">
-        <button id="btn-explain" class="primary" type="button" disabled>Explain this moment</button>
-        <button id="btn-recap" class="secondary" type="button">Match recap</button>
+        <button id="btn-explain" class="primary" type="button" disabled
+          title="Run the four agents on the selected moment or player">Explain this moment</button>
+        <button id="btn-recap" class="secondary" type="button" title="Explain the whole match">Match recap</button>
       </div>
       <button id="btn-broadcast" class="broadcast" type="button"
         title="Generate an on-screen lower-third graphic for the current selection">Broadcast view</button>
@@ -138,7 +144,7 @@
       <div class="node"><b>5. Screen</b>Text, computed figures for both teams, on-air graphic</div>
     </div>
 
-    <h3>Why you can trust it</h3>
+    <h3 id="about-trust">Why you can trust it</h3>
     <ul>
       <li>The figures on screen are never written by the model: they are computed and always name both teams.</li>
       <li>A Verifier agent checks each claim; a deterministic guard checks that every number in the text exists in the data.</li>

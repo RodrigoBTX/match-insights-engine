@@ -24,6 +24,14 @@ def test_recap_cards_name_both_teams_and_show_both_sides():
     assert all(c["detail"] == f"{H} – {A}" for c in cards)  # the old graphic said "63% Possession": whose?
 
 
+def test_every_card_has_a_language_neutral_key_so_one_explanation_serves_all_languages():
+    for lang in ch.LABELS:
+        keys = [c["key"] for c in ch.build_chips(MATCH, None, None, lang)]
+        assert keys == ["possession", "shots", "xg"], lang
+    for m in MOMENTS:
+        assert all(c["key"] for c in ch.build_chips(MATCH, m, None, "pt")), m["title"]
+
+
 def test_every_moment_type_gives_three_complete_cards():
     for m in MOMENTS:
         cards = ch.build_chips(MATCH, m, None, "en")
