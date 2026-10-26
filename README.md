@@ -162,6 +162,8 @@ upload endpoint in `app/main.py`.
 ## Known limitations
 
 - The demo match is synthetic, one match only; recordings cover that match only.
+- The synthetic match has 11 players per team and no substitutions. A real feed would list every player with recorded
+  actions, but entry and exit minutes are not modelled and the adapters ignore substitution events.
 - The Verifier is a language model and is not reliable alone; the deterministic checks cover figures and the
   framing cases found so far, not every possible error.
 - Titles can be generic and grammar can slip, mostly outside English.
