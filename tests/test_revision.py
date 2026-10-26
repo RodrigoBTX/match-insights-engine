@@ -24,7 +24,8 @@ def res(headline="h", issues=(), untraced=(), graphic=True, trace=None):
 
 
 def stub(monkeypatch, outcomes):
-    """Replace one workflow pass: each call yields progress events and then the next outcome (or raises it)."""
+    """Replace one workflow pass: each call yields progress events and then the
+    next outcome (or raises it)."""
     calls = []
 
     async def fake(
@@ -173,7 +174,7 @@ def test_malformed_json_twice_is_still_an_error(monkeypatch):
     assert len(calls) == 2  # one retry, not a loop
 
 
-def test_a_chaotic_spell_gets_a_two_team_headline_example_and_nothing_else_does():
+def test_only_a_chaotic_spell_gets_a_two_team_headline_example():
     from app import analytics as an
     from app.agents import moment_guidance
     from app.generator import generate_match
@@ -195,7 +196,7 @@ def test_a_chaotic_spell_gets_a_two_team_headline_example_and_nothing_else_does(
     assert moment_guidance(match, None) == ""
 
 
-def test_the_guidance_changes_neither_the_facts_nor_the_recordings_fingerprint():
+def test_guidance_changes_neither_facts_nor_fingerprint():
     from app import analytics as an
     from app import demo
     from app.generator import generate_match
@@ -212,10 +213,13 @@ def test_lines_that_only_say_there_is_no_issue_are_not_issues():
     from app.agents import real_issues
 
     issues = [
-        "Claim 'both teams turned the ball over more' is supported by turnovers 2.3 to 4.5. No issue here.",
+        "Claim 'both teams turned the ball over more' is supported by "
+        "turnovers "
+        "2.3 to 4.5. No issue here.",
         "The graphic line is vague but aligns with data; no strict issue here.",
         "Claim about possession matches the facts. No issue.",
-        "The claim that Eastport nearly doubled their shots is not supported: shots went from 1 to 3.",
+        "The claim that Eastport nearly doubled their shots is not supported: "
+        "shots went from 1 to 3.",
     ]
     assert real_issues(issues) == [issues[3]]
     assert real_issues(None) == [] and real_issues([]) == []
@@ -239,7 +243,7 @@ def test_what_counts_as_a_problem():
     assert "graphic" in result_problems(res(graphic=False), "broadcaster")[0]
 
 
-def test_the_revision_request_lists_every_problem_and_asks_for_the_same_format():
+def test_revision_request_lists_every_problem_and_the_format():
     text = revision_request(["The checks flagged: a", "The checks flagged: b"])
     assert (
         "- The checks flagged: a" in text and "- The checks flagged: b" in text

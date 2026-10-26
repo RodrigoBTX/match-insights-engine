@@ -15,7 +15,9 @@ def moment_facts():
 def test_correct_text_passes():
     allowed = allowed_numbers(moment_facts())
     text = (
-        "At 27'17 Eastport scored (xG 0.42, shot 96 km/h). Win probability rose from 34,4% to 65.6%. "
+        "At 27'17 Eastport scored (xG 0.42, shot 96 km/h). "
+        "Win probability rose "
+        "from 34,4% to 65.6%. "
         "The move covered 62 metres."
     )
     assert numeric_check(text, allowed)["unverified"] == []
@@ -23,7 +25,10 @@ def test_correct_text_passes():
 
 def test_planted_numbers_are_flagged():
     allowed = allowed_numbers(moment_facts())
-    text = "Eastport scored after 31 passes with xG 0.85 and win probability 91.0%."
+    text = (
+        "Eastport scored after 31 passes with xG 0.85 "
+        "and win probability 91.0%."
+    )
     res = numeric_check(text, allowed)
     assert {"0.85", "91.0"} <= set(res["unverified"])
 
@@ -34,13 +39,17 @@ TEAMS = [("Northbridge FC", "Northbridge"), ("Eastport United", "Eastport")]
 def test_a_chaotic_spell_text_naming_only_one_team_is_flagged():
     from app.grounding import framing_issues
 
-    one_sided = "Entre os minutos 35 e 45, o Northbridge FC assumiu maior controlo e pressionou intensamente."
+    one_sided = (
+        "Entre os minutos 35 e 45, o Northbridge FC assumiu maior controlo e "
+        "pressionou intensamente."
+    )
     assert framing_issues("chaotic_spell", one_sided, TEAMS) == [
-        "A chaotic spell concerns both teams, but the text names only one of them."
+        "A chaotic spell concerns both teams, but the text names only one of "
+        "them."
     ]
 
 
-def test_naming_both_teams_or_neither_is_fine_and_other_events_are_not_checked():
+def test_naming_both_teams_or_neither_is_fine_others_unchecked():
     from app.grounding import framing_issues
 
     assert (
@@ -67,20 +76,23 @@ def test_naming_both_teams_or_neither_is_fine_and_other_events_are_not_checked()
     )  # nor does a recap
 
 
-def test_each_field_is_checked_on_its_own_so_a_long_explanation_cannot_hide_a_one_sided_title():
+def test_each_field_is_checked_alone_so_a_long_text_cannot_hide_a_title():
     from app.agents import wording_issues
 
     final = {
         "headline": (
-            "Chaos erupts as Northbridge FC storms back in the possession battle"
+            "Chaos erupts as Northbridge FC storms back in the possession "
+            "battle"
         ),
         "explanation": (
-            "Northbridge FC and Eastport United both lost control of the ball for ten minutes."
+            "Northbridge FC and Eastport United both lost control of the ball "
+            "for ten minutes."
         ),
         "graphic": {
             "title": "Chaotic spell shakes the match",
             "line": (
-                "From minute 35 to 45, Northbridge FC increased possession drastically."
+                "From minute 35 to 45, Northbridge FC increased possession "
+                "drastically."
             ),
         },
     }

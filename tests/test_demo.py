@@ -34,7 +34,8 @@ def result(headline="recorded", graphic=None, clean=True):
     }
 
 
-# --------------------------------------------------------------------------- pure logic
+# ---------------------------------------------------------------------------
+# pure logic
 def test_fingerprint_is_stable_and_sensitive_to_the_match():
     again = generate_match(7)
     assert demo.fingerprint(MATCH, MOMENTS) == demo.fingerprint(
@@ -70,7 +71,7 @@ def test_save_load_roundtrip_and_stale_recordings_are_ignored(tmp_path):
     }
 
 
-def test_is_clean_requires_verification_traced_numbers_and_a_requested_graphic():
+def test_is_clean_requires_verification_traced_numbers_and_graphic():
     graphic = {"title": "t", "line": "l", "chips": []}
     assert demo.is_clean(result(), "coach")
     assert not demo.is_clean(result(clean=False), "coach")
@@ -109,7 +110,8 @@ def test_pick_fallback_prefers_same_audience_then_casual_fan_in_english():
         ("Azure CLI not found on path", True),
         ("Failed to invoke the Azure CLI", True),
         (
-            "Model is required. Set via 'model' parameter or 'FOUNDRY_MODEL' environment variable.",
+            "Model is required. Set via 'model' parameter or 'FOUNDRY_MODEL' "
+            "environment variable.",
             True,
         ),
         ("Please run 'az login' to setup account.", True),
@@ -121,10 +123,12 @@ def test_auth_errors_are_told_apart_from_other_failures(message, expected):
     assert demo.is_auth_error(RuntimeError(message)) is expected
 
 
-# --------------------------------------------------------------------------- endpoints
+# ---------------------------------------------------------------------------
+# endpoints
 @pytest.fixture
 def client(monkeypatch):
-    """A client over an isolated app state; no lifespan runs, so nothing calls `az`."""
+    """A client over an isolated app state; no lifespan runs, so nothing calls
+    `az`."""
     recorded = {
         demo.entry_key(MID, "m1", None, "coach", "en"): {
             **result("coach en"),
@@ -232,7 +236,10 @@ def test_one_cold_start_failure_is_retried_and_then_succeeds(
     )
 
 
-RAW = "<class 'agent_framework_foundry.FoundryChatClient'> Error code: 404 - DeploymentNotFound request_id abc123"
+RAW = (
+    "<class 'agent_framework_foundry.FoundryChatClient'> Error code: 404 - "
+    "DeploymentNotFound request_id abc123"
+)
 
 
 @pytest.mark.parametrize(
@@ -287,8 +294,8 @@ def test_service_failure_without_a_recording_gives_a_clear_502(
     r = ask(client, moment_id="m2", language="pt")
     assert r.status_code == 502
     assert (
-        r.json()["detail"]
-        == "The AI model deployment was not found. Please try again in a moment."
+        r.json()["detail"] == "The AI model deployment was not found. "
+        "Please try again in a moment."
     )
 
 

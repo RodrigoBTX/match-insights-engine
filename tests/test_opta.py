@@ -17,7 +17,8 @@ def test_teams_and_event_mapping():
     m = load()
     assert (m.home.name, m.away.name) == ("Alpha FC", "Beta United")
     types = [e.type for e in m.events]
-    # own goal, shoot-out goal and the fouled player's foul record are all dropped
+    # own goal, shoot-out goal and the fouled player's foul record are all
+    # dropped
     assert types == [
         "pass",
         "pass",
@@ -98,7 +99,8 @@ def test_rejects_bad_input():
 
 def test_xml_with_entities_is_rejected_not_expanded():
     bomb = (
-        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;&a;">]>'
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY a "aaaa"><!ENTITY b '
+        '"&a;&a;&a;&a;">]>'
         '<Games><Game home_team_id="1" away_team_id="2">&b;</Game></Games>'
     )
     from defusedxml.common import DefusedXmlException

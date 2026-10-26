@@ -6,7 +6,7 @@ from scripts import quality_report as q
 MATCH, MOMENTS_7 = MATCHES[demo.DEMO_MATCH_ID], MOMENTS[demo.DEMO_MATCH_ID]
 
 
-def test_the_set_covers_every_moment_in_three_audiences_plus_portuguese_graphics_recaps_and_players():
+def test_the_set_covers_every_moment_audience_recap_and_players():
     targets = q.build_targets(MATCH, MOMENTS_7)
     moments = len(MOMENTS_7)
     assert len(targets) == moments * 4 + 3 + 6
@@ -16,7 +16,7 @@ def test_the_set_covers_every_moment_in_three_audiences_plus_portuguese_graphics
     assert sum(1 for t in targets if t["player"]) == 6
 
 
-def test_the_goal_role_check_catches_the_known_failure_and_accepts_correct_wording():
+def test_goal_role_check_catches_the_failure_and_accepts_correct_text():
     equaliser = next(
         m
         for m in MOMENTS_7
@@ -58,7 +58,7 @@ def record(label="a", reasons=(), revised=False, kept=None, first=()):
     }
 
 
-def test_report_separates_the_first_draft_from_the_revised_result_and_never_claims_more_than_it_measured():
+def test_report_separates_first_draft_from_revised_result():
     cases = [
         record("clean"),
         record(
@@ -82,12 +82,12 @@ def test_report_separates_the_first_draft_from_the_revised_result_and_never_clai
         in text
     )
     assert (
-        "after the automatic revision**, which is what the user sees: **50% (2/4)**"
-        in text
+        "after the automatic revision**, which is what the user sees: **50% "
+        "(2/4)**" in text
     )
     assert (
-        "Revisions triggered: 2; the revised draft was kept in 1, the first draft in 1"
-        in text
+        "Revisions triggered: 2; the revised draft was kept in 1, the first "
+        "draft in 1" in text
     )
     assert (
         "does not mean the writing is good" in text and "ran **once**" in text

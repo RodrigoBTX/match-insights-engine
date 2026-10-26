@@ -31,11 +31,11 @@ def test_red_card_press_shift_is_found_and_trigger_precedes_it():
     press = [s for s in shifts.values() if "press higher" in s["title"]]
     assert press, "expected a press-higher shift after the red card"
     assert press[0]["facts"]["likely_trigger"]["event"] == "red_card"
-    for (
-        s
-    ) in (
+    for s in (
         shifts.values()
-    ):  # a cause never comes after its effect (shifts sit on whole minutes: 1 min tolerance)
+        # a cause never comes after its effect (shifts sit on whole minutes:
+        # 1 min tolerance)
+    ):
         trig = s["facts"]["likely_trigger"]
         if trig:
             m, sec = trig["minute"].split("'")

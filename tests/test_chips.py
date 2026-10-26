@@ -29,7 +29,7 @@ def test_recap_cards_name_both_teams_and_show_both_sides():
     )  # the old graphic said "63% Possession": whose?
 
 
-def test_every_card_has_a_language_neutral_key_so_one_explanation_serves_all_languages():
+def test_every_card_has_a_language_neutral_key():
     for lang in ch.LABELS:
         keys = [c["key"] for c in ch.build_chips(MATCH, None, None, lang)]
         assert keys == ["possession", "shots", "xg"], lang
@@ -174,7 +174,7 @@ def test_unusual_facts_give_no_cards_rather_than_a_wrong_figure():
     assert ch.build_chips(MATCH, broken, None, "en") == []
 
 
-def test_the_payload_carries_each_moments_cards_without_touching_the_stored_moments():
+def test_payload_carries_each_moments_cards_without_mutating_moments():
     match = main.MATCHES[main.demo.DEMO_MATCH_ID]
     before = [dict(m) for m in main.MOMENTS[match.id]]
     data = main.payload(match)
