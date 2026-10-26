@@ -1,42 +1,54 @@
-"use strict";
+/* eslint-disable strict */
+// A classic script on purpose (not a module): the browser tests read `state` globally.
 
-const NS = "http://www.w3.org/2000/svg";
+'use strict';
+
+const NS = 'http://www.w3.org/2000/svg';
+const CHAOS_COLOR = '#c77dff';
+const NEUTRAL_COLOR = '#5b6b64';
 const $ = (id) => document.getElementById(id);
 
-const state = { match: null, selected: null, selectedPlayer: null, selectedWindow: null, busy: false };
+const state = {
+  match: null, selected: null, selectedPlayer: null, selectedWindow: null, busy: false,
+};
 
 /* ---------- helpers ---------- */
 function svg(tag, attrs = {}, parent = null, text = null) {
   const n = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  Object.entries(attrs).forEach(([k, v]) => { n.setAttribute(k, v); });
   if (text !== null) n.textContent = text;
   if (parent) parent.appendChild(n);
   return n;
 }
 function html(tag, props = {}, children = []) {
   const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (k === "text") n.textContent = v;
-    else if (k === "class") n.className = v;
+  Object.entries(props).forEach(([k, v]) => {
+    if (k === 'text') n.textContent = v;
+    else if (k === 'class') n.className = v;
     else n.setAttribute(k, v);
-  }
-  for (const c of [].concat(children)) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  [].concat(children).forEach((c) => { n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
   return n;
 }
-const colorOf = (side) => (side === "home" ? state.match.home.color : state.match.away.color);
+const colorOf = (side) => (side === 'home' ? state.match.home.color : state.match.away.color);
 const nameOf = (side) => state.match[side].name;
 const clock = (t) => `${Math.floor(t)}'`;
 
-const OFFLINE = "Cannot reach the server. Check that it is still running, then reload the page.";
-const BROKEN = "The server sent an unreadable answer. Please try again.";
-// Browser-level failures (server down, connection dropped, bad JSON) get a plain sentence instead of "Failed to fetch".
-const friendly = (err) => (err instanceof TypeError ? OFFLINE : err instanceof SyntaxError ? BROKEN : err.message);
+const OFFLINE = 'Cannot reach the server. Check that it is still running, then reload the page.';
+const BROKEN = 'The server sent an unreadable answer. Please try again.';
+// Browser-level failures (server down, connection dropped, bad JSON) get a plain sentence
+// instead of "Failed to fetch".
+function friendly(err) {
+  if (err instanceof TypeError) return OFFLINE;
+  if (err instanceof SyntaxError) return BROKEN;
+  return err.message;
+}
 
 async function failureText(res) {
   let detail = res.statusText;
   try { detail = (await res.json()).detail || detail; } catch (_) { /* keep statusText */ }
-  if (typeof detail !== "string") return "The request was not valid.";
-  return res.status >= 500 && detail === res.statusText ? "The server had a problem. Please try again." : detail;
+  if (typeof detail !== 'string') return 'The request was not valid.';
+  return res.status >= 500 && detail === res.statusText ? 'The server had a problem. Please try again.' : detail;
 }
 
 async function api(path, options) {
@@ -47,118 +59,192 @@ async function api(path, options) {
 }
 
 function showError(msg) {
-  const box = $("error");
-  box.textContent = msg || "";
+  const box = $('error');
+  box.textContent = msg || '';
   box.hidden = !msg;
 }
 
 /* ---------- scoreboard ---------- */
 function renderScoreboard() {
-  const m = state.match, s = m.summary;
-  const box = $("scoreboard");
+  const m = state.match;
+  const s = m.summary;
+  const box = $('scoreboard');
   box.replaceChildren();
-  const team = (side) => html("div", { class: `team ${side}` }, side === "home"
-    ? [html("span", { class: "swatch", style: `background:${m.home.color}` }), html("span", { class: "team-name", text: m.home.name })]
-    : [html("span", { class: "team-name", text: m.away.name }), html("span", { class: "swatch", style: `background:${m.away.color}` })]);
-  box.append(team("home"), html("div", { class: "score", text: `${s.score.home} – ${s.score.away}` }), team("away"));
-  const stat = (label, h, a, tip) => html("div", { class: "stat", title: tip }, [html("b", { text: `${h} – ${a}` }), html("span", { text: label })]);
-  box.append(html("div", { class: "statrow" }, [
-    stat("Possession %", s.possession_pct.home, s.possession_pct.away, "Share of the ball held by each team (home – away)."),
-    stat("Shots (on target)", `${s.shots.home} (${s.on_target.home})`, `${s.shots.away} (${s.on_target.away})`, "Shots attempted, with those on target in brackets (home – away)."),
-    stat("Expected goals", s.xg.home.toFixed(2), s.xg.away.toFixed(2), "xG: chance quality of all shots, added up. Higher means better chances, not more goals."),
-    stat("Cards Y/R", `${s.cards.home.yellow}/${s.cards.home.red}`, `${s.cards.away.yellow}/${s.cards.away.red}`, "Yellow / red cards (home – away)."),
+  const team = (side) => html('div', { class: `team ${side}` }, side === 'home'
+    ? [html('span', { class: 'swatch', style: `background:${m.home.color}` }), html('span', { class: 'team-name', text: m.home.name })]
+    : [html('span', { class: 'team-name', text: m.away.name }), html('span', { class: 'swatch', style: `background:${m.away.color}` })]);
+  box.append(team('home'), html('div', { class: 'score', text: `${s.score.home} – ${s.score.away}` }), team('away'));
+  const stat = (label, h, a, tip) => html('div', { class: 'stat', title: tip }, [html('b', { text: `${h} – ${a}` }), html('span', { text: label })]);
+  box.append(html('div', { class: 'statrow' }, [
+    stat('Possession %', s.possession_pct.home, s.possession_pct.away, 'Share of the ball held by each team (home – away).'),
+    stat('Shots (on target)', `${s.shots.home} (${s.on_target.home})`, `${s.shots.away} (${s.on_target.away})`, 'Shots attempted, with those on target in brackets (home – away).'),
+    stat('Expected goals', s.xg.home.toFixed(2), s.xg.away.toFixed(2), 'xG: chance quality of all shots, added up. Higher means better chances, not more goals.'),
+    stat('Cards Y/R', `${s.cards.home.yellow}/${s.cards.home.red}`, `${s.cards.away.yellow}/${s.cards.away.red}`, 'Yellow / red cards (home – away).'),
   ]));
-  $("source").textContent = `${m.source} (${m.competition})`;
+  $('source').textContent = `${m.source} (${m.competition})`;
 }
 
 /* ---------- pitch ---------- */
 function drawPitchBase(root) {
-  const line = { fill: "none", stroke: "var(--pitch-line)", "stroke-width": 0.35 };
-  svg("rect", { x: -3, y: -3, width: 111, height: 74, rx: 2, fill: "var(--pitch)" }, root);
-  svg("rect", { x: 0, y: 0, width: 105, height: 68, ...line }, root);
-  svg("line", { x1: 52.5, y1: 0, x2: 52.5, y2: 68, ...line }, root);
-  svg("circle", { cx: 52.5, cy: 34, r: 9.15, ...line }, root);
-  for (const [x, w] of [[0, 16.5], [88.5, 16.5]]) svg("rect", { x, y: 13.84, width: w, height: 40.32, ...line }, root);
-  for (const [x, w] of [[0, 5.5], [99.5, 5.5]]) svg("rect", { x, y: 24.84, width: w, height: 18.32, ...line }, root);
-  svg("rect", { x: -1.5, y: 30.34, width: 1.5, height: 7.32, ...line }, root);
-  svg("rect", { x: 105, y: 30.34, width: 1.5, height: 7.32, ...line }, root);
-  svg("text", { x: 2, y: -0.9, "font-size": 2.6 }, root, `${state.match.home.short} attacks →`);
-  svg("text", { x: 103, y: -0.9, "font-size": 2.6, "text-anchor": "end" }, root, `← ${state.match.away.short} attacks`);
-  const defs = svg("defs", {}, root);
-  for (const side of ["home", "away"]) {
-    const mk = svg("marker", { id: `arrow-${side}`, viewBox: "0 0 6 6", refX: 5, refY: 3, markerWidth: 2.4, markerHeight: 2.4, orient: "auto" }, defs);
-    svg("path", { d: "M0,0 L6,3 L0,6 z", fill: colorOf(side) }, mk);
-  }
+  const line = { fill: 'none', stroke: 'var(--pitch-line)', 'stroke-width': 0.35 };
+  svg('rect', {
+    x: -3, y: -3, width: 111, height: 74, rx: 2, fill: 'var(--pitch)',
+  }, root);
+  svg('rect', {
+    x: 0, y: 0, width: 105, height: 68, ...line,
+  }, root);
+  svg('line', {
+    x1: 52.5, y1: 0, x2: 52.5, y2: 68, ...line,
+  }, root);
+  svg('circle', {
+    cx: 52.5, cy: 34, r: 9.15, ...line,
+  }, root);
+  [[0, 16.5], [88.5, 16.5]].forEach(([x, w]) => {
+    svg('rect', {
+      x, y: 13.84, width: w, height: 40.32, ...line,
+    }, root);
+  });
+  [[0, 5.5], [99.5, 5.5]].forEach(([x, w]) => {
+    svg('rect', {
+      x, y: 24.84, width: w, height: 18.32, ...line,
+    }, root);
+  });
+  svg('rect', {
+    x: -1.5, y: 30.34, width: 1.5, height: 7.32, ...line,
+  }, root);
+  svg('rect', {
+    x: 105, y: 30.34, width: 1.5, height: 7.32, ...line,
+  }, root);
+  svg('text', { x: 2, y: -0.9, 'font-size': 2.6 }, root, `${state.match.home.short} attacks →`);
+  svg('text', {
+    x: 103, y: -0.9, 'font-size': 2.6, 'text-anchor': 'end',
+  }, root, `← ${state.match.away.short} attacks`);
+  const defs = svg('defs', {}, root);
+  ['home', 'away'].forEach((side) => {
+    const mk = svg('marker', {
+      id: `arrow-${side}`, viewBox: '0 0 6 6', refX: 5, refY: 3, markerWidth: 2.4, markerHeight: 2.4, orient: 'auto',
+    }, defs);
+    svg('path', { d: 'M0,0 L6,3 L0,6 z', fill: colorOf(side) }, mk);
+  });
 }
 
-/* Press line = mean distance from own goal where the side wins the ball, before and after the shift. */
+/* Press line = mean distance from own goal where the side wins the ball,
+   before and after the shift. */
 function drawPressLines(g, moment) {
-  const f = moment.facts, side = moment.side, col = colorOf(side);
-  const before = f.window_before_10_min.press_height_m[side], after = f.window_after_10_min.press_height_m[side];
+  const f = moment.facts;
+  const { side } = moment;
+  const col = colorOf(side);
+  const before = f.window_before_10_min.press_height_m[side];
+  const after = f.window_after_10_min.press_height_m[side];
   if (before == null || after == null) return;
-  const abs = (h) => (side === "home" ? h : 105 - h);
-  // labels stay at the top, one row each, with an outline: they must not hide behind the lower third
+  const abs = (h) => (side === 'home' ? h : 105 - h);
+  // labels stay at the top, one row each, with an outline: they must not hide behind the
+  // lower third
   // (stage) nor be crossed by the other line when the two lines are close
-  const halo = "paint-order:stroke;stroke:#0f2f23;stroke-width:.9px;stroke-linejoin:round";
-  for (const [h, label, dash, y] of [[before, `before ${before} m`, "2 1.5", 5.5], [after, `after ${after} m`, "none", 11]]) {
-    svg("line", { x1: abs(h), y1: 0, x2: abs(h), y2: 68, stroke: col, "stroke-width": 0.8, "stroke-dasharray": dash }, g);
-    svg("text", { x: abs(h) + (side === "home" ? 1 : -1), y, "text-anchor": side === "home" ? "start" : "end",
-      style: `fill:${col};${halo}`, "font-weight": 700 }, g, label);
-  }
+  const halo = 'paint-order:stroke;stroke:#0f2f23;stroke-width:.9px;stroke-linejoin:round';
+  [[before, `before ${before} m`, '2 1.5', 5.5], [after, `after ${after} m`, 'none', 11]].forEach(([h, label, dash, y]) => {
+    svg('line', {
+      x1: abs(h), y1: 0, x2: abs(h), y2: 68, stroke: col, 'stroke-width': 0.8, 'stroke-dasharray': dash,
+    }, g);
+    svg('text', {
+      x: abs(h) + (side === 'home' ? 1 : -1),
+      y,
+      'text-anchor': side === 'home' ? 'start' : 'end',
+      style: `fill:${col};${halo}`,
+      'font-weight': 700,
+    }, g, label);
+  });
 }
 
-/* What the symbols on the pitch mean for the current selection (page legend and broadcast stage). */
+/* What the symbols on the pitch mean for the current selection
+   (page legend and broadcast stage). */
 function legendText(moment, player) {
-  if (player) return "Bright arrows = progressive passes · circles = shots · ◇ = ball won · ■ = save";
-  if (!moment) return "Size = xG · white ring = goal";
-  if (moment.type === "tactical_shift") return "Lines = press height before/after · ◇ = ball won";
-  if (moment.type === "chaotic_spell") return "◇ = ball won or lost during the period";
-  return "Arrows = passes · ◇ = turnover";
+  if (player) return 'Bright arrows = progressive passes · circles = shots · ◇ = ball won · ■ = save';
+  if (!moment) return 'Size = xG · white ring = goal';
+  if (moment.type === 'tactical_shift') return 'Lines = press height before/after · ◇ = ball won';
+  if (moment.type === 'chaotic_spell') return '◇ = ball won or lost during the period';
+  return 'Arrows = passes · ◇ = turnover';
 }
 
 function shotTitle(e) {
-  const xg = e.xg != null ? ` · xG ${e.xg.toFixed(2)}` : "";
-  return `${clock(e.t)} ${e.player || ""} (${nameOf(e.side)})${xg} · ${e.outcome || e.type}`;
+  const xg = e.xg != null ? ` · xG ${e.xg.toFixed(2)}` : '';
+  return `${clock(e.t)} ${e.player || ''} (${nameOf(e.side)})${xg} · ${e.outcome || e.type}`;
 }
 
 /* Draws the pitch scene (shot map, or a moment replay, or one player) into any svg root. */
 function drawScene(root, moment, player) {
   drawPitchBase(root);
   const m = state.match;
-  const shots = m.events.filter((e) => e.type === "shot" || e.type === "goal");
+  const shots = m.events.filter((e) => e.type === 'shot' || e.type === 'goal');
   const dim = !!moment || !!player;
 
-  const layer = svg("g", { opacity: dim ? 0.18 : 1 }, root);
-  for (const e of shots) {
+  const layer = svg('g', { opacity: dim ? 0.18 : 1 }, root);
+  shots.forEach((e) => {
     const r = 0.9 + (e.xg ?? 0.05) * 6;
-    const c = svg("circle", { cx: e.x, cy: e.y, r, fill: colorOf(e.side), "fill-opacity": 0.72,
-      stroke: e.type === "goal" ? "#fff" : colorOf(e.side), "stroke-width": e.type === "goal" ? 0.7 : 0.25 }, layer);
-    svg("title", {}, c, shotTitle(e));
-  }
+    const c = svg('circle', {
+      cx: e.x,
+      cy: e.y,
+      r,
+      fill: colorOf(e.side),
+      'fill-opacity': 0.72,
+      stroke: e.type === 'goal' ? '#fff' : colorOf(e.side),
+      'stroke-width': e.type === 'goal' ? 0.7 : 0.25,
+    }, layer);
+    svg('title', {}, c, shotTitle(e));
+  });
 
   if (moment) {
     const byId = new Map(m.events.map((e) => [e.id, e]));
     const seq = moment.event_ids.map((id) => byId.get(id)).filter(Boolean);
-    const g = svg("g", {}, root);
-    if (moment.type === "tactical_shift") drawPressLines(g, moment);
+    const g = svg('g', {}, root);
+    if (moment.type === 'tactical_shift') drawPressLines(g, moment);
     seq.forEach((e, i) => {
       const style = `animation-delay:${i * 0.22}s`;
       const col = colorOf(e.side);
-      if (e.type === "pass" && e.ex != null) {
-        svg("line", { x1: e.x, y1: e.y, x2: e.ex, y2: e.ey, stroke: col, "stroke-width": 0.7, class: "reveal", style,
-          "marker-end": `url(#arrow-${e.side})` }, g);
-      } else if (e.type === "shot" || e.type === "goal") {
-        const n = svg("g", { class: "reveal", style }, g);
-        svg("line", { x1: e.x, y1: e.y, x2: e.side === "home" ? 105 : 0, y2: 34, stroke: col, "stroke-width": 0.5, "stroke-dasharray": "1.2 1" }, n);
-        const c = svg("circle", { cx: e.x, cy: e.y, r: 1.9, fill: e.type === "goal" ? "#fff" : col, stroke: col, "stroke-width": 0.8 }, n);
-        svg("title", {}, c, shotTitle(e));
-      } else if (e.type === "red_card" || e.type === "yellow_card") {
-        svg("rect", { x: e.x - 1.2, y: e.y - 1.8, width: 2.4, height: 3.6, rx: 0.4, class: "reveal", style,
-          fill: e.type === "red_card" ? "#ff3b3b" : "#ffd23b" }, g);
-      } else if (e.type === "tackle" || e.type === "interception" || e.type === "corner" || e.type === "foul") {
-        const d = svg("rect", { x: e.x - 1.1, y: e.y - 1.1, width: 2.2, height: 2.2, transform: `rotate(45 ${e.x} ${e.y})`,
-          fill: col, class: "reveal", style }, g);
-        svg("title", {}, d, `${clock(e.t)} ${e.type} – ${e.player || ""}`);
+      if (e.type === 'pass' && e.ex != null) {
+        svg('line', {
+          x1: e.x,
+          y1: e.y,
+          x2: e.ex,
+          y2: e.ey,
+          stroke: col,
+          'stroke-width': 0.7,
+          class: 'reveal',
+          style,
+          'marker-end': `url(#arrow-${e.side})`,
+        }, g);
+      } else if (e.type === 'shot' || e.type === 'goal') {
+        const n = svg('g', { class: 'reveal', style }, g);
+        svg('line', {
+          x1: e.x, y1: e.y, x2: e.side === 'home' ? 105 : 0, y2: 34, stroke: col, 'stroke-width': 0.5, 'stroke-dasharray': '1.2 1',
+        }, n);
+        const c = svg('circle', {
+          cx: e.x, cy: e.y, r: 1.9, fill: e.type === 'goal' ? '#fff' : col, stroke: col, 'stroke-width': 0.8,
+        }, n);
+        svg('title', {}, c, shotTitle(e));
+      } else if (e.type === 'red_card' || e.type === 'yellow_card') {
+        svg('rect', {
+          x: e.x - 1.2,
+          y: e.y - 1.8,
+          width: 2.4,
+          height: 3.6,
+          rx: 0.4,
+          class: 'reveal',
+          style,
+          fill: e.type === 'red_card' ? '#ff3b3b' : '#ffd23b',
+        }, g);
+      } else if (e.type === 'tackle' || e.type === 'interception' || e.type === 'corner' || e.type === 'foul') {
+        const d = svg('rect', {
+          x: e.x - 1.1,
+          y: e.y - 1.1,
+          width: 2.2,
+          height: 2.2,
+          transform: `rotate(45 ${e.x} ${e.y})`,
+          fill: col,
+          class: 'reveal',
+          style,
+        }, g);
+        svg('title', {}, d, `${clock(e.t)} ${e.type} – ${e.player || ''}`);
       }
     });
   } else if (player) {
@@ -167,58 +253,85 @@ function drawScene(root, moment, player) {
 }
 
 function renderPitch() {
-  const root = $("pitch");
+  const root = $('pitch');
   root.replaceChildren();
   const m = state.match;
   const moment = m.moments.find((x) => x.id === state.selected);
   const player = m.players.find((p) => p.id === state.selectedPlayer);
   drawScene(root, moment, player);
-  $("pitch-title").textContent = moment ? `Replay – ${moment.title} (${moment.facts.minute})`
-    : player ? `Player – ${player.name} (${player.position}, ${player.team})` : "Shot map";
+  let title = 'Shot map';
+  if (moment) title = `Replay – ${moment.title} (${moment.facts.minute})`;
+  else if (player) title = `Player – ${player.name} (${player.position}, ${player.team})`;
+  $('pitch-title').textContent = title;
 
-  const lg = $("pitch-legend");
+  const lg = $('pitch-legend');
   lg.replaceChildren();
-  for (const side of ["home", "away"]) {
-    const s = html("span", {}, [html("i", { class: "dot", style: `background:${colorOf(side)}` }), nameOf(side)]);
+  ['home', 'away'].forEach((side) => {
+    const s = html('span', {}, [html('i', { class: 'dot', style: `background:${colorOf(side)}` }), nameOf(side)]);
     lg.appendChild(s);
-  }
-  lg.appendChild(html("span", { text: legendText(moment, player) }));
+  });
+  lg.appendChild(html('span', { text: legendText(moment, player) }));
 }
 
 /* One player's passes (progressive ones highlighted), shots and ball wins. */
 function drawPlayer(root, p) {
-  const m = state.match, col = colorOf(p.side);
-  const g = svg("g", {}, root);
-  for (const e of m.events.filter((ev) => ev.pid === p.id)) {
-    if (e.type === "pass" && e.ex != null) {
-      svg("line", { x1: e.x, y1: e.y, x2: e.ex, y2: e.ey, stroke: col, "stroke-width": e.prog ? 0.9 : 0.35,
-        "stroke-opacity": e.prog ? 1 : 0.28, ...(e.prog ? { "marker-end": `url(#arrow-${e.side})` } : {}) }, g);
-    } else if (e.type === "shot" || e.type === "goal") {
-      const c = svg("circle", { cx: e.x, cy: e.y, r: 1.2 + (e.xg ?? 0.05) * 6, fill: e.type === "goal" ? "#fff" : col,
-        "fill-opacity": 0.85, stroke: col, "stroke-width": 0.8 }, g);
-      svg("title", {}, c, shotTitle(e));
-    } else if (e.type === "tackle" || e.type === "interception") {
-      svg("rect", { x: e.x - 1, y: e.y - 1, width: 2, height: 2, transform: `rotate(45 ${e.x} ${e.y})`, fill: col }, g);
-    } else if (e.type === "save") {  // a goalkeeper's only events: without these his pitch is empty
-      const s = svg("rect", { x: e.x - 1.3, y: e.y - 1.3, width: 2.6, height: 2.6, rx: 0.4, fill: col, stroke: "#fff", "stroke-width": 0.35 }, g);
-      svg("title", {}, s, `${clock(e.t)} save`);
+  const m = state.match;
+  const col = colorOf(p.side);
+  const g = svg('g', {}, root);
+  m.events.filter((ev) => ev.pid === p.id).forEach((e) => {
+    if (e.type === 'pass' && e.ex != null) {
+      svg('line', {
+        x1: e.x,
+        y1: e.y,
+        x2: e.ex,
+        y2: e.ey,
+        stroke: col,
+        'stroke-width': e.prog ? 0.9 : 0.35,
+        'stroke-opacity': e.prog ? 1 : 0.28,
+        ...(e.prog ? { 'marker-end': `url(#arrow-${e.side})` } : {}),
+      }, g);
+    } else if (e.type === 'shot' || e.type === 'goal') {
+      const c = svg('circle', {
+        cx: e.x,
+        cy: e.y,
+        r: 1.2 + (e.xg ?? 0.05) * 6,
+        fill: e.type === 'goal' ? '#fff' : col,
+        'fill-opacity': 0.85,
+        stroke: col,
+        'stroke-width': 0.8,
+      }, g);
+      svg('title', {}, c, shotTitle(e));
+    } else if (e.type === 'tackle' || e.type === 'interception') {
+      svg('rect', {
+        x: e.x - 1, y: e.y - 1, width: 2, height: 2, transform: `rotate(45 ${e.x} ${e.y})`, fill: col,
+      }, g);
+    } else if (e.type === 'save') { // a goalkeeper's only events: without these his pitch is empty
+      const s = svg('rect', {
+        x: e.x - 1.3, y: e.y - 1.3, width: 2.6, height: 2.6, rx: 0.4, fill: col, stroke: '#fff', 'stroke-width': 0.35,
+      }, g);
+      svg('title', {}, s, `${clock(e.t)} save`);
     }
-  }
+  });
 }
 
 /* ---------- broadcast stage ---------- */
-const TAGS = { goal: "GOAL", red_card: "RED CARD", big_chance: "BIG CHANCE", tactical_shift: "TACTICAL SHIFT", chaotic_spell: "CHAOS" };
+const TAGS = {
+  goal: 'GOAL', red_card: 'RED CARD', big_chance: 'BIG CHANCE', tactical_shift: 'TACTICAL SHIFT', chaotic_spell: 'CHAOS',
+};
 
 function probabilityBar(wp) {
   const m = state.match;
-  const seg = (cls, color, value, label) => html("span", { class: `seg ${cls}`, style: `flex:${Math.max(value, 0.02)};background:${color}`, title: label },
-    value >= 0.12 ? [label] : []);
-  return html("div", { class: "prob" }, [
-    html("span", { class: "prob-title", text: "Win probability" }),
-    html("div", { class: "prob-bar" }, [
-      seg("h", m.home.color, wp.home, `${m.home.short} ${Math.round(wp.home * 100)}%`),
-      seg("d", NEUTRAL_COLOR, wp.draw, `Draw ${Math.round(wp.draw * 100)}%`),
-      seg("a", m.away.color, wp.away, `${m.away.short} ${Math.round(wp.away * 100)}%`),
+  const seg = (cls, color, value, label) => html(
+    'span',
+    { class: `seg ${cls}`, style: `flex:${Math.max(value, 0.02)};background:${color}`, title: label },
+    value >= 0.12 ? [label] : [],
+  );
+  return html('div', { class: 'prob' }, [
+    html('span', { class: 'prob-title', text: 'Win probability' }),
+    html('div', { class: 'prob-bar' }, [
+      seg('h', m.home.color, wp.home, `${m.home.short} ${Math.round(wp.home * 100)}%`),
+      seg('d', NEUTRAL_COLOR, wp.draw, `Draw ${Math.round(wp.draw * 100)}%`),
+      seg('a', m.away.color, wp.away, `${m.away.short} ${Math.round(wp.away * 100)}%`),
     ]),
   ]);
 }
@@ -228,228 +341,317 @@ function openStage(result) {
   const moment = m.moments.find((x) => x.id === state.selected);
   const player = m.players.find((p) => p.id === state.selectedPlayer);
   const g = result.graphic;
-  const pitch = $("stage-pitch");
+  const pitch = $('stage-pitch');
   pitch.replaceChildren();
   drawScene(pitch, moment, player);
 
-  const side = moment ? moment.side : player ? player.side : "home";
-  $("stage").style.setProperty("--accent-team", colorOf(side));
-  const score = (moment ? moment.facts.score_after : `${m.summary.score.home}-${m.summary.score.away}`).replace("-", " – ");
-  const tag = moment ? TAGS[moment.type] || "MOMENT" : player ? "PLAYER SPOTLIGHT" : "MATCH RECAP";
-  $("stage-legend").textContent = legendText(moment, player);
+  const { side } = moment || player || { side: 'home' };
+  $('stage').style.setProperty('--accent-team', colorOf(side));
+  const score = (moment ? moment.facts.score_after : `${m.summary.score.home}-${m.summary.score.away}`).replace('-', ' – ');
+  let tag = 'MATCH RECAP';
+  if (moment) tag = TAGS[moment.type] || 'MOMENT';
+  else if (player) tag = 'PLAYER SPOTLIGHT';
+  $('stage-legend').textContent = legendText(moment, player);
 
-  $("bug").replaceChildren(
-    html("span", { class: "bug-team", text: m.home.short, style: `border-color:${m.home.color}` }),
-    html("b", { class: "bug-score", text: score }),
-    html("span", { class: "bug-team", text: m.away.short, style: `border-color:${m.away.color}` }),
-    html("span", { class: "bug-clock", text: moment ? moment.facts.minute : "FT" }),
+  $('bug').replaceChildren(
+    html('span', { class: 'bug-team', text: m.home.short, style: `border-color:${m.home.color}` }),
+    html('b', { class: 'bug-score', text: score }),
+    html('span', { class: 'bug-team', text: m.away.short, style: `border-color:${m.away.color}` }),
+    html('span', { class: 'bug-clock', text: moment ? moment.facts.minute : 'FT' }),
   );
 
   const v = result.verification;
-  const verified = v && !(v.issues || []).length && !((v.numeric_check || {}).unverified || []).length;
+  const unverified = (v && v.numeric_check && v.numeric_check.unverified) || [];
+  const verified = v && !(v.issues || []).length && !unverified.length;
   const wp = moment && moment.facts.win_probability_after;
-  const lower = $("lower");
-  lower.classList.remove("in");
+  const lower = $('lower');
+  lower.classList.remove('in');
   lower.replaceChildren(
-    html("div", { class: "lower-main" }, [
-      html("span", { class: "lower-tag", text: tag }),
-      html("h3", { class: "lower-title", text: g.title }),
-      html("p", { class: "lower-line", text: g.line }),
+    html('div', { class: 'lower-main' }, [
+      html('span', { class: 'lower-tag', text: tag }),
+      html('h3', { class: 'lower-title', text: g.title }),
+      html('p', { class: 'lower-line', text: g.line }),
       ...(wp ? [probabilityBar(wp)] : []),
     ]),
-    html("div", { class: "lower-chips" }, g.chips.map((c) =>
-      html("div", { class: "lower-chip" }, [
-        html("b", { text: c.value, class: c.value.length > 6 ? "long" : "" }), html("span", { text: c.label }),
-        ...(c.detail ? [html("small", { text: c.detail })] : [])]))),
-    html("span", { class: `lower-verified ${verified ? "ok" : "warn"}`,
-      text: verified ? "✔ Verified against the data" : "⚠ Needs a check before airing" }),
+    html('div', { class: 'lower-chips' }, g.chips.map((c) => html('div', { class: 'lower-chip' }, [
+      html('b', { text: c.value, class: c.value.length > 6 ? 'long' : '' }), html('span', { text: c.label }),
+      ...(c.detail ? [html('small', { text: c.detail })] : [])]))),
+    html('span', {
+      class: `lower-verified ${verified ? 'ok' : 'warn'}`,
+      text: verified ? '✔ Verified against the data' : '⚠ Needs a check before airing',
+    }),
   );
-  $("stage-backdrop").hidden = false;
-  $("stage-close").focus();
-  requestAnimationFrame(() => requestAnimationFrame(() => lower.classList.add("in")));
+  $('stage-backdrop').hidden = false;
+  $('stage-close').focus();
+  requestAnimationFrame(() => requestAnimationFrame(() => lower.classList.add('in')));
 }
 
 function closeStage() {
-  $("stage-backdrop").hidden = true;
-  $("btn-broadcast").focus();
+  $('stage-backdrop').hidden = true;
+  $('btn-broadcast').focus();
 }
 
 /* ---------- players ---------- */
 function renderPlayers() {
-  const m = state.match, box = $("players");
+  const m = state.match; const box = $('players');
   box.replaceChildren();
   const best = m.players[0];
-  $("potm").textContent = best ? `Highest impact: ${best.name} (${best.team}) · ${best.impact}` : "";
+  $('potm').textContent = best ? `Highest impact: ${best.name} (${best.team}) · ${best.impact}` : '';
   const maxImpact = Math.max(...m.players.map((p) => p.impact), 1);
-  for (const side of ["home", "away"]) {
-    const col = html("div", { class: "pcol" }, [html("h3", { text: m[side].name, style: `border-color:${m[side].color}` })]);
-    const heads = [["", ""], ["Player", "Player and position"], ["Impact", "Formula score, not a human rating"],
-      ["G", "Goals"], ["xG", "Expected goals: quality of the shots taken"], ["CC", "Chances created: last pass before a shot"],
-      ["Prog", "Progressive passes: 10 m or more towards goal"]];
-    col.appendChild(html("div", { class: "prow head" }, heads.map(([t, tip]) => html("span", { text: t, title: tip }))));
-    for (const p of m.players.filter((q) => q.side === side)) {
-      const row = html("button", { class: "prow", type: "button", "aria-pressed": p.id === state.selectedPlayer,
-        title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.ball_wins} ball wins${p.saves ? `, ${p.saves} saves` : ""}` }, [
-        html("span", { class: "rank", text: String(p.rank_in_team) }),
-        html("span", { class: "pname" }, [p.name, html("small", { text: ` ${p.position}` })]),
-        html("span", { class: "impact" }, [html("i", { style: `width:${(100 * p.impact) / maxImpact}%;background:${m[side].color}` }), html("b", { text: p.impact.toFixed(1) })]),
-        html("span", { text: String(p.goals) }), html("span", { text: p.xg.toFixed(2) }),
-        html("span", { text: String(p.chances_created) }), html("span", { text: String(p.progressive_passes) }),
+  ['home', 'away'].forEach((side) => {
+    const col = html('div', { class: 'pcol' }, [html('h3', { text: m[side].name, style: `border-color:${m[side].color}` })]);
+    const heads = [['', ''], ['Player', 'Player and position'], ['Impact', 'Formula score, not a human rating'],
+      ['G', 'Goals'], ['xG', 'Expected goals: quality of the shots taken'], ['CC', 'Chances created: last pass before a shot'],
+      ['Prog', 'Progressive passes: 10 m or more towards goal']];
+    col.appendChild(html('div', { class: 'prow head' }, heads.map(([t, tip]) => html('span', { text: t, title: tip }))));
+    m.players.filter((q) => q.side === side).forEach((p) => {
+      const row = html('button', {
+        class: 'prow',
+        type: 'button',
+        'aria-pressed': p.id === state.selectedPlayer,
+        title: `${p.name}: ${p.passes} passes, ${p.progressive_passes} progressive, ${p.chances_created} chances created, ${p.ball_wins} ball wins${p.saves ? `, ${p.saves} saves` : ''}`,
+      }, [
+        html('span', { class: 'rank', text: String(p.rank_in_team) }),
+        html('span', { class: 'pname' }, [p.name, html('small', { text: ` ${p.position}` })]),
+        html('span', { class: 'impact' }, [html('i', { style: `width:${(100 * p.impact) / maxImpact}%;background:${m[side].color}` }), html('b', { text: p.impact.toFixed(1) })]),
+        html('span', { text: String(p.goals) }), html('span', { text: p.xg.toFixed(2) }),
+        html('span', { text: String(p.chances_created) }), html('span', { text: String(p.progressive_passes) }),
       ]);
-      row.addEventListener("click", () => selectPlayer(p.id));
+      row.addEventListener('click', () => selectPlayer(p.id));
       col.appendChild(row);
-    }
+    });
     box.appendChild(col);
-  }
+  });
 }
 
 /* ---------- momentum timeline ---------- */
-const MARK = { goal: "G", red_card: "R", big_chance: "C", tactical_shift: "T", chaotic_spell: "≈" };
+const MARK = {
+  goal: 'G', red_card: 'R', big_chance: 'C', tactical_shift: 'T', chaotic_spell: '≈',
+};
 
 /* ---------- control vs chaos ---------- */
-const CHAOS_COLOR = "#c77dff";
-const NEUTRAL_COLOR = "#5b6b64";
-
 function stateLabel(windowState) {
   const m = state.match;
-  return { home_control: `${m.home.name} in control`, away_control: `${m.away.name} in control`,
-    balanced: "Balanced", chaotic: "Chaotic" }[windowState] || windowState;
+  return {
+    home_control: `${m.home.name} in control`,
+    away_control: `${m.away.name} in control`,
+    balanced: 'Balanced',
+    chaotic: 'Chaotic',
+  }[windowState] || windowState;
 }
 
 function renderControl() {
-  const root = $("control");
+  const root = $('control');
   root.replaceChildren();
-  const m = state.match, W = 960, L = 8, R = 8, y = 6, h = 38;
-  const defs = svg("defs", {}, root);
-  const pat = svg("pattern", { id: "chaos-hatch", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
-  svg("rect", { width: 8, height: 8, fill: CHAOS_COLOR, "fill-opacity": 0.35 }, pat);
-  svg("rect", { width: 3, height: 8, fill: CHAOS_COLOR }, pat);
+  const m = state.match;
+  const W = 960;
+  const L = 8;
+  const R = 8;
+  const y = 6;
+  const h = 38;
+  const defs = svg('defs', {}, root);
+  const pat = svg('pattern', {
+    id: 'chaos-hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)',
+  }, defs);
+  svg('rect', {
+    width: 8, height: 8, fill: CHAOS_COLOR, 'fill-opacity': 0.35,
+  }, pat);
+  svg('rect', { width: 3, height: 8, fill: CHAOS_COLOR }, pat);
   const cw = (W - L - R) / m.control.length;
   m.control.forEach((w, i) => {
     const x = L + i * cw;
-    const fill = w.state === "chaotic" ? "url(#chaos-hatch)" : w.state === "home_control" ? m.home.color
-      : w.state === "away_control" ? m.away.color : NEUTRAL_COLOR;
+    const fills = { chaotic: 'url(#chaos-hatch)', home_control: m.home.color, away_control: m.away.color };
+    const fill = fills[w.state] || NEUTRAL_COLOR;
     const picked = state.selectedWindow === i;
-    const cell = svg("g", { class: "cell", tabindex: 0, role: "button", "aria-pressed": picked,
-      "aria-label": `${w.start}' to ${w.end}': ${stateLabel(w.state)}` }, root);
-    const r = svg("rect", { x: x + 1, y, width: cw - 2, height: h, rx: 4, fill, "fill-opacity": w.state === "balanced" ? 0.55 : 0.9,
-      stroke: picked ? "var(--text)" : "none", "stroke-width": picked ? 2.5 : 0 }, cell);
-    svg("title", {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)} (select for details)`);
-    cell.addEventListener("click", () => selectWindow(i));
-    cell.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectWindow(i); } });
-    if (i % 3 === 0) svg("text", { x: x + cw / 2, y: 62, "text-anchor": "middle" }, root, `${w.start}'`);
+    const cell = svg('g', {
+      class: 'cell',
+      tabindex: 0,
+      role: 'button',
+      'aria-pressed': picked,
+      'aria-label': `${w.start}' to ${w.end}': ${stateLabel(w.state)}`,
+    }, root);
+    const r = svg('rect', {
+      x: x + 1,
+      y,
+      width: cw - 2,
+      height: h,
+      rx: 4,
+      fill,
+      'fill-opacity': w.state === 'balanced' ? 0.55 : 0.9,
+      stroke: picked ? 'var(--text)' : 'none',
+      'stroke-width': picked ? 2.5 : 0,
+    }, cell);
+    svg('title', {}, r, `${w.start}'–${w.end}' · ${stateLabel(w.state)} (select for details)`);
+    cell.addEventListener('click', () => selectWindow(i));
+    cell.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectWindow(i); } });
+    if (i % 3 === 0) svg('text', { x: x + cw / 2, y: 62, 'text-anchor': 'middle' }, root, `${w.start}'`);
   });
-  const lg = $("control-legend");
+  const lg = $('control-legend');
   lg.replaceChildren();
-  const item = (color, label, hatched) => html("span", {}, [html("i", { class: "dot", style: `background:${hatched ? `repeating-linear-gradient(45deg,${color},${color} 2px,transparent 2px,transparent 4px)` : color}` }), label]);
-  lg.append(item(m.home.color, `${m.home.short} control`), item(m.away.color, `${m.away.short} control`),
-    item(NEUTRAL_COLOR, "Balanced"), item(CHAOS_COLOR, "Chaotic", true));
+  const item = (color, label, hatched) => html('span', {}, [html('i', { class: 'dot', style: `background:${hatched ? `repeating-linear-gradient(45deg,${color},${color} 2px,transparent 2px,transparent 4px)` : color}` }), label]);
+  lg.append(
+    item(m.home.color, `${m.home.short} control`),
+    item(m.away.color, `${m.away.short} control`),
+    item(NEUTRAL_COLOR, 'Balanced'),
+    item(CHAOS_COLOR, 'Chaotic', true),
+  );
 }
 
 function renderMomentum() {
-  const root = $("momentum");
+  const root = $('momentum');
   root.replaceChildren();
-  const m = state.match, W = 960, L = 36, R = 12, base = 134, amp = 62;
+  const m = state.match;
+  const W = 960;
+  const L = 36;
+  const R = 12;
+  const base = 134;
+  const amp = 62;
   const xs = (min) => L + (min / 93) * (W - L - R);
-  $("momentum-note").textContent = `Bars show the pressure each minute (final-third passes, shots, corners): above the line favours ${m.home.name}, below favours ${m.away.name}. Markers are key moments: G goal · R red card · C big chance · T tactical shift · ≈ chaotic spell. Select one to inspect it.`;
-  svg("line", { x1: L, y1: base, x2: W - R, y2: base, stroke: "var(--line)" }, root);
-  svg("line", { x1: xs(45), y1: 60, x2: xs(45), y2: base + amp + 4, stroke: "var(--line)", "stroke-dasharray": "4 4" }, root);
-  svg("text", { x: xs(45) + 4, y: 70 }, root, "HT");
-  for (const t of [0, 15, 30, 45, 60, 75, 90]) svg("text", { x: xs(t), y: base + amp + 18, "text-anchor": "middle" }, root, `${t}'`);
-  svg("text", { x: 4, y: base - amp + 4 }, root, m.home.short);
-  svg("text", { x: 4, y: base + amp + 4 }, root, m.away.short);
+  $('momentum-note').textContent = `Bars show the pressure each minute (final-third passes, shots, corners): above the line favours ${m.home.name}, below favours ${m.away.name}. Markers are key moments: G goal · R red card · C big chance · T tactical shift · ≈ chaotic spell. Select one to inspect it.`;
+  svg('line', {
+    x1: L, y1: base, x2: W - R, y2: base, stroke: 'var(--line)',
+  }, root);
+  svg('line', {
+    x1: xs(45), y1: 60, x2: xs(45), y2: base + amp + 4, stroke: 'var(--line)', 'stroke-dasharray': '4 4',
+  }, root);
+  svg('text', { x: xs(45) + 4, y: 70 }, root, 'HT');
+  [0, 15, 30, 45, 60, 75, 90].forEach((t) => { svg('text', { x: xs(t), y: base + amp + 18, 'text-anchor': 'middle' }, root, `${t}'`); });
+  svg('text', { x: 4, y: base - amp + 4 }, root, m.home.short);
+  svg('text', { x: 4, y: base + amp + 4 }, root, m.away.short);
   const bw = (W - L - R) / 93 - 1.5;
-  for (const p of m.momentum) {
+  m.momentum.forEach((p) => {
     const h = Math.abs(p.value) * amp;
-    if (!h) continue;
-    svg("rect", { x: xs(p.minute) - bw / 2, y: p.value > 0 ? base - h : base, width: bw, height: h, rx: 1.5,
-      fill: p.value > 0 ? m.home.color : m.away.color, "fill-opacity": 0.8 }, root);
-  }
+    if (!h) return;
+    svg('rect', {
+      x: xs(p.minute) - bw / 2,
+      y: p.value > 0 ? base - h : base,
+      width: bw,
+      height: h,
+      rx: 1.5,
+      fill: p.value > 0 ? m.home.color : m.away.color,
+      'fill-opacity': 0.8,
+    }, root);
+  });
   // Markers that would overlap go on a second or third lane instead of hiding each other.
   const laneEnd = [-Infinity, -Infinity, -Infinity];
-  for (const mo of m.moments) {
+  m.moments.forEach((mo) => {
     const x = xs(mo.minute + mo.second / 60);
     const lane = Math.max(0, laneEnd.findIndex((end) => x - end >= 27));
     laneEnd[lane] = x;
     const cy = 20 + lane * 26;
     const sel = mo.id === state.selected;
-    svg("line", { x1: x, y1: cy, x2: x, y2: base, stroke: colorOf(mo.side), "stroke-opacity": sel ? 0.9 : 0.35, "stroke-dasharray": "2 3" }, root);
-    const g = svg("g", { class: "marker", tabindex: 0, role: "button", "aria-label": `${mo.title} at ${mo.facts.minute}`,
-      "aria-pressed": sel }, root);
-    svg("circle", { class: "hit", cx: x, cy, r: 11, fill: "var(--surface)", stroke: colorOf(mo.side), "stroke-width": sel ? 3 : 1.5 }, g);
-    svg("text", { x, y: cy + 4, "text-anchor": "middle", "font-weight": 700, style: "fill:var(--text)" }, g, MARK[mo.type] || "•");
-    svg("title", {}, g, `${mo.facts.minute} ${mo.title}`);
-    g.addEventListener("click", () => select(mo.id));
-    g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(mo.id); } });
-  }
+    svg('line', {
+      x1: x, y1: cy, x2: x, y2: base, stroke: colorOf(mo.side), 'stroke-opacity': sel ? 0.9 : 0.35, 'stroke-dasharray': '2 3',
+    }, root);
+    const g = svg('g', {
+      class: 'marker',
+      tabindex: 0,
+      role: 'button',
+      'aria-label': `${mo.title} at ${mo.facts.minute}`,
+      'aria-pressed': sel,
+    }, root);
+    svg('circle', {
+      class: 'hit', cx: x, cy, r: 11, fill: 'var(--surface)', stroke: colorOf(mo.side), 'stroke-width': sel ? 3 : 1.5,
+    }, g);
+    svg('text', {
+      x, y: cy + 4, 'text-anchor': 'middle', 'font-weight': 700, style: 'fill:var(--text)',
+    }, g, MARK[mo.type] || '•');
+    svg('title', {}, g, `${mo.facts.minute} ${mo.title}`);
+    g.addEventListener('click', () => select(mo.id));
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(mo.id); } });
+  });
 }
 
 function renderMoments() {
-  const box = $("moments");
+  const box = $('moments');
   box.replaceChildren();
-  for (const mo of state.match.moments) {
-    const b = html("button", { class: "chip", type: "button", "aria-pressed": mo.id === state.selected }, [
-      html("span", { class: "min", text: mo.facts.minute }),
-      html("i", { class: "dot", style: `background:${colorOf(mo.side)}` }),
+  state.match.moments.forEach((mo) => {
+    const b = html('button', { class: 'chip', type: 'button', 'aria-pressed': mo.id === state.selected }, [
+      html('span', { class: 'min', text: mo.facts.minute }),
+      html('i', { class: 'dot', style: `background:${colorOf(mo.side)}` }),
       mo.title,
     ]);
-    b.addEventListener("click", () => select(mo.id));
+    b.addEventListener('click', () => select(mo.id));
     box.appendChild(b);
-  }
+  });
 }
 
 /* ---------- xG and possession ---------- */
 function axes(root, W, H, L, B, ticks, fmt) {
-  for (const v of ticks) {
+  ticks.forEach((v) => {
     const y = B - v.pos;
-    svg("line", { x1: L, y1: y, x2: W - 8, y2: y, stroke: "var(--line)" }, root);
-    svg("text", { x: L - 6, y: y + 4, "text-anchor": "end" }, root, fmt(v.value));
-  }
+    svg('line', {
+      x1: L, y1: y, x2: W - 8, y2: y, stroke: 'var(--line)',
+    }, root);
+    svg('text', { x: L - 6, y: y + 4, 'text-anchor': 'end' }, root, fmt(v.value));
+  });
 }
 
 function renderXG() {
-  const root = $("xg");
+  const root = $('xg');
   root.replaceChildren();
-  const m = state.match, W = 460, H = 170, L = 34, B = 142, T = 12;
+  const m = state.match;
+  const W = 460;
+  const H = 170;
+  const L = 34;
+  const B = 142;
+  const T = 12;
   const last = m.xg[m.xg.length - 1];
   const max = Math.max(1, Math.ceil(Math.max(last.home, last.away) * 2) / 2);
   const x = (min) => L + (min / 92) * (W - L - 54);
   const y = (v) => B - (v / max) * (B - T);
-  const step = max > 2.5 ? 1 : 0.5;  // round tick values (0, 1, 2, 3), not halves of an odd maximum
+  const step = max > 2.5 ? 1 : 0.5; // round tick values (0, 1, 2, 3), not halves of an odd maximum
   const ticks = [];
   for (let v = 0; v <= max + 1e-9; v += step) ticks.push({ value: v, pos: B - y(v) });
   axes(root, W, H, L, B, ticks, (v) => v.toFixed(v % 1 ? 1 : 0));
-  for (const t of [0, 45, 90]) svg("text", { x: x(t), y: 160, "text-anchor": "middle" }, root, `${t}'`);
-  for (const side of ["home", "away"]) {
-    const pts = m.xg.map((p) => `${x(p.minute)},${y(p[side])}`).join(" ");
-    svg("polyline", { points: pts, fill: "none", stroke: colorOf(side), "stroke-width": 2.5, "stroke-linejoin": "round" }, root);
-    svg("text", { x: x(92) + 6, y: y(last[side]) + 4, style: "fill:var(--text)", "font-weight": 700 }, root, `${m[side].short} ${last[side].toFixed(2)}`);
-  }
-  for (const mo of m.moments.filter((q) => q.type === "goal")) {
+  [0, 45, 90].forEach((t) => { svg('text', { x: x(t), y: 160, 'text-anchor': 'middle' }, root, `${t}'`); });
+  ['home', 'away'].forEach((side) => {
+    const pts = m.xg.map((p) => `${x(p.minute)},${y(p[side])}`).join(' ');
+    svg('polyline', {
+      points: pts, fill: 'none', stroke: colorOf(side), 'stroke-width': 2.5, 'stroke-linejoin': 'round',
+    }, root);
+    svg('text', {
+      x: x(92) + 6, y: y(last[side]) + 4, style: 'fill:var(--text)', 'font-weight': 700,
+    }, root, `${m[side].short} ${last[side].toFixed(2)}`);
+  });
+  m.moments.filter((q) => q.type === 'goal').forEach((mo) => {
     const p = m.xg[Math.min(mo.minute, 92)];
-    svg("circle", { cx: x(mo.minute), cy: y(p[mo.side]), r: 4.5, fill: "#fff", stroke: colorOf(mo.side), "stroke-width": 2 }, root);
-  }
+    svg('circle', {
+      cx: x(mo.minute), cy: y(p[mo.side]), r: 4.5, fill: '#fff', stroke: colorOf(mo.side), 'stroke-width': 2,
+    }, root);
+  });
 }
 
 function renderPossession() {
-  const root = $("poss");
+  const root = $('poss');
   root.replaceChildren();
-  const m = state.match, W = 460, L = 34, B = 142, T = 12;
-  const n = m.possession.length, bw = (W - L - 8) / n - 3;
+  const m = state.match;
+  const W = 460;
+  const L = 34;
+  const B = 142;
+  const T = 12;
+  const n = m.possession.length;
+  const bw = (W - L - 8) / n - 3;
   axes(root, W, 170, L, B, [0, 50, 100].map((v) => ({ value: v, pos: (v / 100) * (B - T) })), (v) => `${v}%`);
-  $("poss-note").textContent = `Share of passes in each 5-minute window: ${m.home.name} (blue, bottom) and ${m.away.name} (orange, top). A grey dashed cell means no passes were recorded in that window.`;
+  $('poss-note').textContent = `Share of passes in each 5-minute window: ${m.home.name} (blue, bottom) and ${m.away.name} (orange, top). A grey dashed cell means no passes were recorded in that window.`;
   m.possession.forEach((w, i) => {
     const x = L + i * ((W - L - 8) / n) + 1.5;
-    if (w.home === null) {  // no passes at all: say so instead of drawing an invented 50/50
-      const r = svg("rect", { x, y: T, width: bw, height: B - T, fill: "none", stroke: NEUTRAL_COLOR, "stroke-dasharray": "3 3" }, root);
-      svg("title", {}, r, `${w.start}'–${w.end}': no passes recorded`);
+    if (w.home === null) { // no passes at all: say so instead of drawing an invented 50/50
+      const r = svg('rect', {
+        x, y: T, width: bw, height: B - T, fill: 'none', stroke: NEUTRAL_COLOR, 'stroke-dasharray': '3 3',
+      }, root);
+      svg('title', {}, r, `${w.start}'–${w.end}': no passes recorded`);
     } else {
       const hh = (w.home / 100) * (B - T);
-      const bar = svg("rect", { x, y: B - hh, width: bw, height: hh, fill: m.home.color, "fill-opacity": 0.85 }, root);
-      svg("title", {}, bar, `${w.start}'–${w.end}': ${m.home.short} ${w.home}% – ${w.away}% ${m.away.short}`);
-      svg("rect", { x, y: T, width: bw, height: B - T - hh, fill: m.away.color, "fill-opacity": 0.85 }, root);
+      const bar = svg('rect', {
+        x, y: B - hh, width: bw, height: hh, fill: m.home.color, 'fill-opacity': 0.85,
+      }, root);
+      svg('title', {}, bar, `${w.start}'–${w.end}': ${m.home.short} ${w.home}% – ${w.away}% ${m.away.short}`);
+      svg('rect', {
+        x, y: T, width: bw, height: B - T - hh, fill: m.away.color, 'fill-opacity': 0.85,
+      }, root);
     }
-    if (i % 3 === 0) svg("text", { x: x + bw / 2, y: 160, "text-anchor": "middle" }, root, `${w.start}'`);
+    if (i % 3 === 0) svg('text', { x: x + bw / 2, y: 160, 'text-anchor': 'middle' }, root, `${w.start}'`);
   });
 }
 
@@ -458,34 +660,37 @@ function hasSelection() {
   return state.selected !== null || state.selectedPlayer !== null;
 }
 
-/* One-line meaning of each figure card, keyed by the language-neutral chip key (shown as a tooltip). */
+/* One-line meaning of each figure card, keyed by the language-neutral chip key
+   (shown as a tooltip). */
 const GLOSSARY = {
-  possession: "Share of the ball held by each team.",
-  possession_prev: "Share of the ball held by each team in the 10 minutes before this moment.",
-  shots: "Shots attempted by each team.",
-  shots_prev: "Shots attempted in the 10 minutes before this moment.",
-  xg: "Expected goals: how likely each shot was to score, added up. It measures chance quality, not the result.",
-  win_prob: "Estimated chance of each result, recomputed from the match state.",
-  shot_speed: "Speed of the shot at the moment it was struck.",
-  red_cards: "Red cards shown to each team so far.",
-  territory: "Share of all final-third passes made by this team: who is playing in the attacking area.",
-  press_height: "Average distance from its own goal where the team wins the ball back (higher = more aggressive press).",
-  possession_changes: "How many times the ball changed hands: more means a more chaotic spell.",
-  passes_per_sequence: "Average passes before possession is lost: fewer means more disorder.",
-  turnovers: "Times a team lost the ball.",
-  goals: "Goals scored by this player.",
-  chances_created: "Last pass before a shot.",
+  possession: 'Share of the ball held by each team.',
+  possession_prev: 'Share of the ball held by each team in the 10 minutes before this moment.',
+  shots: 'Shots attempted by each team.',
+  shots_prev: 'Shots attempted in the 10 minutes before this moment.',
+  xg: 'Expected goals: how likely each shot was to score, added up. It measures chance quality, not the result.',
+  win_prob: 'Estimated chance of each result, recomputed from the match state.',
+  shot_speed: 'Speed of the shot at the moment it was struck.',
+  red_cards: 'Red cards shown to each team so far.',
+  territory: 'Share of all final-third passes made by this team: who is playing in the attacking area.',
+  press_height: 'Average distance from its own goal where the team wins the ball back (higher = more aggressive press).',
+  possession_changes: 'How many times the ball changed hands: more means a more chaotic spell.',
+  passes_per_sequence: 'Average passes before possession is lost: fewer means more disorder.',
+  turnovers: 'Times a team lost the ball.',
+  goals: 'Goals scored by this player.',
+  chances_created: 'Last pass before a shot.',
   progressive_passes: "Passes that move the ball 10 m or more towards the opponent's goal.",
-  ball_wins: "Tackles and interceptions that won the ball back.",
-  saves: "Shots on target stopped by the goalkeeper.",
+  ball_wins: 'Tackles and interceptions that won the ball back.',
+  saves: 'Shots on target stopped by the goalkeeper.',
   impact: "Formula score from the player's actions, not a human rating.",
 };
-const chipEl = (c) => html("div", { class: "statchip", title: GLOSSARY[c.key] || "" }, [
-  html("b", { text: String(c.value) }), html("span", { text: String(c.label) }),
-  ...(c.detail ? [html("small", { text: c.detail })] : [])]);
+const chipEl = (c) => html('div', { class: 'statchip', title: GLOSSARY[c.key] || '' }, [
+  html('b', { text: String(c.value) }), html('span', { text: String(c.label) }),
+  ...(c.detail ? [html('small', { text: c.detail })] : [])]);
 
 function miniPitch(moment, player, label) {
-  const mini = svg("svg", { viewBox: "-3 -3 111 74", class: "mini-pitch", role: "img", "aria-label": label });
+  const mini = svg('svg', {
+    viewBox: '-3 -3 111 74', class: 'mini-pitch', role: 'img', 'aria-label': label,
+  });
   drawScene(mini, moment, player);
   return mini;
 }
@@ -494,87 +699,93 @@ function miniPitch(moment, player, label) {
 function tryThisMoments() {
   const ms = state.match.moments;
   const find = (f) => ms.find(f);
-  const goal = find((x) => x.type === "goal" && /equaliser/.test(x.facts.goal_role || "")) || find((x) => x.type === "goal");
-  return [find((x) => x.type === "red_card"), goal, find((x) => x.type === "chaotic_spell")].filter(Boolean);
+  const goal = find((x) => x.type === 'goal' && /equaliser/.test(x.facts.goal_role || '')) || find((x) => x.type === 'goal');
+  return [find((x) => x.type === 'red_card'), goal, find((x) => x.type === 'chaotic_spell')].filter(Boolean);
 }
 
 /* Everything shown here already exists in the page data: no request, no agent, no waiting. */
 function renderInfo() {
-  const box = $("info");
+  const box = $('info');
   box.replaceChildren();
   const m = state.match;
   const mo = m.moments.find((x) => x.id === state.selected);
   const pl = m.players.find((p) => p.id === state.selectedPlayer);
   const win = state.selectedWindow !== null ? m.control[state.selectedWindow] : null;
-  const head = (tag, color, right) => html("div", { class: "info-head" }, [
-    html("span", { class: "info-tag", style: `background:${color}`, text: tag }), ...(right ? [right] : [])]);
+  const head = (tag, color, right) => html('div', { class: 'info-head' }, [
+    html('span', { class: 'info-tag', style: `background:${color}`, text: tag }), ...(right ? [right] : [])]);
 
   if (mo) {
     const i = m.moments.indexOf(mo);
     box.append(
-      head(TAGS[mo.type] || "MOMENT", colorOf(mo.side), html("b", { text: mo.facts.minute })),
-      html("h3", { class: "info-title", text: mo.title }),
-      html("p", { class: "info-sub", text: `${m.home.short} ${mo.facts.score_after.replace("-", " – ")} ${m.away.short}` }),
+      head(TAGS[mo.type] || 'MOMENT', colorOf(mo.side), html('b', { text: mo.facts.minute })),
+      html('h3', { class: 'info-title', text: mo.title }),
+      html('p', { class: 'info-sub', text: `${m.home.short} ${mo.facts.score_after.replace('-', ' – ')} ${m.away.short}` }),
       miniPitch(mo, null, `Replay of ${mo.title}`),
-      html("div", { class: "chips" }, (mo.chips || []).map(chipEl)),
-      html("div", { class: "info-nav" }, [
-        html("button", { class: "ghost", type: "button", id: "prev-moment", title: "Previous moment (←)", text: "◀ Previous" }),
-        html("span", { class: "info-pos", text: `${i + 1} of ${m.moments.length}` }),
-        html("button", { class: "ghost", type: "button", id: "next-moment", title: "Next moment (→)", text: "Next ▶" }),
+      html('div', { class: 'chips' }, (mo.chips || []).map(chipEl)),
+      html('div', { class: 'info-nav' }, [
+        html('button', {
+          class: 'ghost', type: 'button', id: 'prev-moment', title: 'Previous moment (←)', text: '◀ Previous',
+        }),
+        html('span', { class: 'info-pos', text: `${i + 1} of ${m.moments.length}` }),
+        html('button', {
+          class: 'ghost', type: 'button', id: 'next-moment', title: 'Next moment (→)', text: 'Next ▶',
+        }),
       ]),
     );
-    $("prev-moment").addEventListener("click", () => stepMoment(-1));
-    $("next-moment").addEventListener("click", () => stepMoment(1));
+    $('prev-moment').addEventListener('click', () => stepMoment(-1));
+    $('next-moment').addEventListener('click', () => stepMoment(1));
   } else if (pl) {
-    const short = m[pl.side].short;
-    const keeper = pl.position === "GK" || (pl.saves > 0 && !pl.shots && !pl.chances_created);
+    const { short } = m[pl.side];
+    const keeper = pl.position === 'GK' || (pl.saves > 0 && !pl.shots && !pl.chances_created);
     const cards = keeper
-      ? [{ label: "Saves", value: pl.saves, detail: short }, { label: "Impact", value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` }]
-      : [{ label: "Impact", value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` },
-         { label: "Goals", value: pl.goals, detail: `xG ${pl.xg.toFixed(2)}` },
-         { label: "Chances created", value: pl.chances_created, detail: short },
-         { label: "Progressive passes", value: pl.progressive_passes, detail: short },
-         { label: "Ball wins", value: pl.ball_wins, detail: short }];
+      ? [{ label: 'Saves', value: pl.saves, detail: short }, { label: 'Impact', value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` }]
+      : [{ label: 'Impact', value: pl.impact.toFixed(1), detail: `#${pl.rank_in_team} ${short}` },
+        { label: 'Goals', value: pl.goals, detail: `xG ${pl.xg.toFixed(2)}` },
+        { label: 'Chances created', value: pl.chances_created, detail: short },
+        { label: 'Progressive passes', value: pl.progressive_passes, detail: short },
+        { label: 'Ball wins', value: pl.ball_wins, detail: short }];
     box.append(
-      head("PLAYER", colorOf(pl.side), html("b", { text: pl.team })),
-      html("h3", { class: "info-title", text: pl.name }),
-      html("p", { class: "info-sub", text: `${pl.position} · impact rank #${pl.rank_in_team} in team, #${pl.rank_overall} in the match` }),
+      head('PLAYER', colorOf(pl.side), html('b', { text: pl.team })),
+      html('h3', { class: 'info-title', text: pl.name }),
+      html('p', { class: 'info-sub', text: `${pl.position} · impact rank #${pl.rank_in_team} in team, #${pl.rank_overall} in the match` }),
       miniPitch(null, pl, `${pl.name}: passes, shots and ball wins`),
-      html("div", { class: "chips" }, cards.map(chipEl)),
+      html('div', { class: 'chips' }, cards.map(chipEl)),
     );
   } else if (win) {
-    const H = m.home.short, A = m.away.short, both = `${H} – ${A}`;
+    const H = m.home.short; const A = m.away.short; const both = `${H} – ${A}`;
     const empty = win.avg_passes_per_sequence === 0;
     box.append(
-      head("WINDOW", NEUTRAL_COLOR, html("b", { text: `${win.start}'–${win.end}'` })),
-      html("h3", { class: "info-title", text: stateLabel(win.state) }),
-      html("p", { class: "info-sub", text: empty ? "No play was recorded in this window." : `Chaos index ${win.chaos_ratio}× the match average` }),
+      head('WINDOW', NEUTRAL_COLOR, html('b', { text: `${win.start}'–${win.end}'` })),
+      html('h3', { class: 'info-title', text: stateLabel(win.state) }),
+      html('p', { class: 'info-sub', text: empty ? 'No play was recorded in this window.' : `Chaos index ${win.chaos_ratio}× the match average` }),
     );
     if (!empty) {
-      box.append(html("div", { class: "chips" }, [
-        { label: "Control", value: `${win.control_score.home} – ${win.control_score.away}`, detail: both },
-        { label: "Possession", value: `${win.possession_pct.home}% – ${win.possession_pct.away}%`, detail: both },
-        { label: "Territory", value: `${win.field_tilt_pct.home}% – ${win.field_tilt_pct.away}%`, detail: both },
-        { label: "Possession changes/min", value: win.sequences_per_min, detail: `${H} + ${A}` },
-        { label: "Passes per move", value: win.avg_passes_per_sequence, detail: `${H} + ${A}` },
+      box.append(html('div', { class: 'chips' }, [
+        { label: 'Control', value: `${win.control_score.home} – ${win.control_score.away}`, detail: both },
+        { label: 'Possession', value: `${win.possession_pct.home}% – ${win.possession_pct.away}%`, detail: both },
+        { label: 'Territory', value: `${win.field_tilt_pct.home}% – ${win.field_tilt_pct.away}%`, detail: both },
+        { label: 'Possession changes/min', value: win.sequences_per_min, detail: `${H} + ${A}` },
+        { label: 'Passes per move', value: win.avg_passes_per_sequence, detail: `${H} + ${A}` },
       ].map(chipEl)));
     }
-    for (const inside of m.moments.filter((x) => x.minute >= win.start && x.minute < win.end)) {
-      const b = html("button", { class: "ghost info-open", type: "button", text: `Open: ${inside.facts.minute} ${inside.title}` });
-      b.addEventListener("click", () => select(inside.id));
+    m.moments.filter((x) => x.minute >= win.start && x.minute < win.end).forEach((inside) => {
+      const b = html('button', { class: 'ghost info-open', type: 'button', text: `Open: ${inside.facts.minute} ${inside.title}` });
+      b.addEventListener('click', () => select(inside.id));
       box.append(b);
-    }
+    });
   } else {
-    box.append(html("p", { class: "info-hint",
-      text: "Select a marker on the timeline, a square in Control vs chaos or a player to see its key figures and a small replay here. Move between moments with ◀ ▶ or the arrow keys." }));
+    box.append(html('p', {
+      class: 'info-hint',
+      text: 'Select a marker on the timeline, a square in Control vs chaos or a player to see its key figures and a small replay here. Move between moments with ◀ ▶ or the arrow keys.',
+    }));
     const tips = tryThisMoments();
     if (tips.length) {
-      box.append(html("p", { class: "info-hint", style: "margin-top:10px", text: "Not sure where to start? Try:" }));
-      for (const mo of tips) {
-        const b = html("button", { class: "ghost tip", type: "button", text: `▶ ${mo.facts.minute} ${mo.title}` });
-        b.addEventListener("click", () => select(mo.id));
+      box.append(html('p', { class: 'info-hint', style: 'margin-top:10px', text: 'Not sure where to start? Try:' }));
+      tips.forEach((tip) => {
+        const b = html('button', { class: 'ghost tip', type: 'button', text: `▶ ${tip.facts.minute} ${tip.title}` });
+        b.addEventListener('click', () => select(tip.id));
         box.append(b);
-      }
+      });
     }
   }
 }
@@ -583,12 +794,15 @@ function refreshSelection() {
   const mo = state.match.moments.find((x) => x.id === state.selected);
   const pl = state.match.players.find((p) => p.id === state.selectedPlayer);
   const win = state.selectedWindow !== null ? state.match.control[state.selectedWindow] : null;
-  $("selected-label").textContent = mo ? `${mo.facts.minute} · ${mo.title}` : pl ? `${pl.name} · ${pl.team}`
-    : win ? `Window ${win.start}'–${win.end}'` : "Whole match";
-  $("btn-explain").textContent = pl ? "Explain this player" : "Explain this moment";
-  $("btn-explain").disabled = !hasSelection() || state.busy;
-  $("result").hidden = true;
-  showError("");
+  let label = 'Whole match';
+  if (mo) label = `${mo.facts.minute} · ${mo.title}`;
+  else if (pl) label = `${pl.name} · ${pl.team}`;
+  else if (win) label = `Window ${win.start}'–${win.end}'`;
+  $('selected-label').textContent = label;
+  $('btn-explain').textContent = pl ? 'Explain this player' : 'Explain this moment';
+  $('btn-explain').disabled = !hasSelection() || state.busy;
+  $('result').hidden = true;
+  showError('');
   renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderPlayers(); renderInfo();
 }
 
@@ -618,7 +832,8 @@ function stepMoment(delta) {
   const ms = state.match.moments;
   if (!ms.length) return;
   const i = ms.findIndex((x) => x.id === state.selected);
-  const next = i < 0 ? (delta > 0 ? 0 : ms.length - 1) : (i + delta + ms.length) % ms.length;
+  let next = (i + delta + ms.length) % ms.length;
+  if (i < 0) next = delta > 0 ? 0 : ms.length - 1;
   state.selected = ms[next].id;
   state.selectedPlayer = null;
   state.selectedWindow = null;
@@ -626,62 +841,62 @@ function stepMoment(delta) {
 }
 
 /* ---------- agents ---------- */
-const AUDIENCE_NAME = { casual_fan: "casual-fan", coach: "coach", broadcaster: "broadcaster" };
+const AUDIENCE_NAME = { casual_fan: 'casual-fan', coach: 'coach', broadcaster: 'broadcaster' };
 
 async function refreshStatus() {
-  const el = $("mode");
+  const el = $('mode');
   try {
-    const s = await api("/api/status");
+    const s = await api('/api/status');
     if (s.live === true) {
-      el.className = "mode live"; el.textContent = "● Live agents";
-      el.title = "Azure sign-in works: new explanations are generated by the agents.";
+      el.className = 'mode live'; el.textContent = '● Live agents';
+      el.title = 'Azure sign-in works: new explanations are generated by the agents.';
     } else if (s.live === false) {
-      el.className = "mode rec"; el.textContent = "● Recorded demo";
-      el.title = `Live agents are unavailable${s.demo_only ? " (demo-only mode)" : ""}. ${s.recorded} explanations recorded earlier by the same agents are available for the synthetic match.`;
+      el.className = 'mode rec'; el.textContent = '● Recorded demo';
+      el.title = `Live agents are unavailable${s.demo_only ? ' (demo-only mode)' : ''}. ${s.recorded} explanations recorded earlier by the same agents are available for the synthetic match.`;
     } else {
-      el.className = "mode"; el.textContent = "● Checking agents…"; el.title = "";
+      el.className = 'mode'; el.textContent = '● Checking agents…'; el.title = '';
       setTimeout(refreshStatus, 3000);
     }
   } catch (_) { /* the badge is informative only */ }
 }
 
 const ROLE = {
-  Analyst: "Analyst – querying the data with tools",
-  Narrator: "Narrator – explaining why it matters",
-  Verifier: "Verifier – checking every claim against the data",
-  Localiser: "Localiser – adapting audience and language",
+  Analyst: 'Analyst – querying the data with tools',
+  Narrator: 'Narrator – explaining why it matters',
+  Verifier: 'Verifier – checking every claim against the data',
+  Localiser: 'Localiser – adapting audience and language',
 };
 
 function showRevise(problems) {
-  const box = $("revise");
-  box.textContent = `The automatic checks flagged the draft (${String(problems[0] || "").replace(/^The checks flagged: /, "").slice(0, 140)}). Rewriting it once…`;
+  const box = $('revise');
+  box.textContent = `The automatic checks flagged the draft (${String(problems[0] || '').replace(/^The checks flagged: /, '').slice(0, 140)}). Rewriting it once…`;
   box.hidden = false;
 }
 
 function setBusy(on) {
   state.busy = on;
-  $("revise").hidden = true;
-  $("btn-recap").disabled = on;
-  $("btn-broadcast").disabled = on;
-  $("btn-explain").disabled = on || !hasSelection();
-  const steps = $("steps");
+  $('revise').hidden = true;
+  $('btn-recap').disabled = on;
+  $('btn-broadcast').disabled = on;
+  $('btn-explain').disabled = on || !hasSelection();
+  const steps = $('steps');
   steps.hidden = !on;
   steps.replaceChildren();
 }
 
 function renderSteps(agents) {
-  const steps = $("steps");
+  const steps = $('steps');
   steps.replaceChildren(...agents.map((a) => {
-    const row = html("div", { class: "step", "data-agent": a }, [html("i"), html("span", { text: ROLE[a] || a })]);
+    const row = html('div', { class: 'step', 'data-agent': a }, [html('i'), html('span', { text: ROLE[a] || a })]);
     return row;
   }));
 }
 
 function markStep(agent, status, seconds) {
-  const row = $("steps").querySelector(`[data-agent="${agent}"]`);
+  const row = $('steps').querySelector(`[data-agent="${agent}"]`);
   if (!row) return;
   row.className = `step ${status}`;
-  if (status === "done") row.lastChild.textContent = `${ROLE[agent] || agent} · ${seconds}s`;
+  if (status === 'done') row.lastChild.textContent = `${ROLE[agent] || agent} · ${seconds}s`;
 }
 
 function verificationBadge(v) {
@@ -689,93 +904,116 @@ function verificationBadge(v) {
   const num = v.numeric_check || { checked: 0, unverified: [] };
   const issues = v.issues || [];
   const clean = issues.length === 0 && num.unverified.length === 0;
-  const parts = [`Verifier: ${v.claims_checked} claims checked, ${issues.length} issue${issues.length === 1 ? "" : "s"}`,
-    `Numeric guard: ${num.checked} figures, ${num.unverified.length ? `not traced to data: ${num.unverified.join(", ")}` : "all traced to data"}`];
-  const box = html("div", { class: `verify ${clean ? "ok" : "warn"}` }, [
-    html("b", { text: clean ? "Verified against the data" : "Needs a check" }),
-    ...parts.map((p) => html("span", { text: p })),
-    ...issues.map((i) => html("span", { text: `• ${i}` })),
+  const parts = [`Verifier: ${v.claims_checked} claims checked, ${issues.length} issue${issues.length === 1 ? '' : 's'}`,
+    `Numeric guard: ${num.checked} figures, ${num.unverified.length ? `not traced to data: ${num.unverified.join(', ')}` : 'all traced to data'}`];
+  const box = html('div', { class: `verify ${clean ? 'ok' : 'warn'}` }, [
+    html('b', { text: clean ? 'Verified against the data' : 'Needs a check' }),
+    ...parts.map((p) => html('span', { text: p })),
+    ...issues.map((i) => html('span', { text: `• ${i}` })),
   ]);
-  const what = html("button", { type: "button", class: "linklike", text: "What does this mean?" });
-  what.addEventListener("click", () => { openAbout(); $("about-trust")?.scrollIntoView(); });
+  const what = html('button', { type: 'button', class: 'linklike', text: 'What does this mean?' });
+  what.addEventListener('click', () => { openAbout(); $('about-trust')?.scrollIntoView(); });
   box.append(what);
   return box;
 }
 
 function renderResult(r) {
-  const box = $("result");
+  const box = $('result');
   box.replaceChildren();
-  box.append(html("h3", { text: r.headline || "" }), html("p", { text: r.explanation || "" }));
-  if (r.tactical_takeaway) box.append(html("div", { class: "takeaway", text: r.tactical_takeaway }));
+  box.append(html('h3', { text: r.headline || '' }), html('p', { text: r.explanation || '' }));
+  if (r.tactical_takeaway) box.append(html('div', { class: 'takeaway', text: r.tactical_takeaway }));
   const badge = verificationBadge(r.verification);
   if (badge) box.append(badge);
   if (r.stat_chips?.length) {
-    box.append(html("div", { class: "chips" }, r.stat_chips.map(chipEl)));
+    box.append(html('div', { class: 'chips' }, r.stat_chips.map(chipEl)));
   }
   if (r.findings?.length) {
-    box.append(html("details", {}, [html("summary", { text: "Grounded findings (from the data)" }),
-      html("ul", {}, r.findings.map((f) => html("li", { text: f })))]));
+    box.append(html('details', {}, [html('summary', { text: 'Grounded findings (from the data)' }),
+      html('ul', {}, r.findings.map((f) => html('li', { text: f })))]));
   }
   if (r.trace?.length) {
-    const li = r.trace.map((t) => t.tool
-      ? html("li", {}, [`${t.agent} called `, html("code", { text: `${t.tool}(${Object.values(t.args).join(", ")})` })])
-      : t.note ? html("li", { text: `${t.agent}: ${t.note}` })
-      : html("li", { text: `${t.agent} finished in ${t.seconds}s` }));
-    box.append(html("details", { class: "trace" }, [html("summary", { text: "How the agents got here" }), html("ul", {}, li)]));
+    const li = r.trace.map((t) => {
+      if (t.tool) {
+        const call = `${t.tool}(${Object.values(t.args).join(', ')})`;
+        return html('li', {}, [`${t.agent} called `, html('code', { text: call })]);
+      }
+      if (t.note) return html('li', { text: `${t.agent}: ${t.note}` });
+      return html('li', { text: `${t.agent} finished in ${t.seconds}s` });
+    });
+    box.append(html('details', { class: 'trace' }, [html('summary', { text: 'How the agents got here' }), html('ul', {}, li)]));
   }
   if (r.revision?.attempted) {
-    const rv = r.revision, first = (rv.first_problems || [])[0] || "a problem";
-    box.prepend(html("div", { class: "fallback-note", text: rv.kept === "revised"
-      ? `The automatic checks flagged the first draft ("${first.replace(/^The checks flagged: /, "").slice(0, 160)}"). It was rewritten once${rv.fixed ? " and the new draft passes every check." : ", but the new draft is still flagged."}`
-      : "The automatic checks flagged the first draft; a rewrite did not improve it, so the first draft is shown." }));
+    const rv = r.revision; const first = (rv.first_problems || [])[0] || 'a problem';
+    box.prepend(html('div', {
+      class: 'fallback-note',
+      text: rv.kept === 'revised'
+        ? `The automatic checks flagged the first draft ("${first.replace(/^The checks flagged: /, '').slice(0, 160)}"). It was rewritten once${rv.fixed ? ' and the new draft passes every check.' : ', but the new draft is still flagged.'}`
+        : 'The automatic checks flagged the first draft; a rewrite did not improve it, so the first draft is shown.',
+    }));
   }
   if (r.fallback) {
     const f = r.fallback;
-    box.prepend(html("div", { class: "fallback-note",
-      text: `Live agents are unavailable (${f.reason}) and this combination was not recorded, so the recorded ${AUDIENCE_NAME[f.shown.audience] || f.shown.audience} version in English is shown.` }));
+    box.prepend(html('div', {
+      class: 'fallback-note',
+      text: `Live agents are unavailable (${f.reason}) and this combination was not recorded, so the recorded ${AUDIENCE_NAME[f.shown.audience] || f.shown.audience} version in English is shown.`,
+    }));
   }
-  if (r.recorded) box.append(html("span", { class: "tag", text: "Recorded result: generated earlier by the same agents" }));
-  else if (r.cached) box.append(html("span", { class: "tag", text: "served from cache" }));
+  if (r.recorded) box.append(html('span', { class: 'tag', text: 'Recorded result: generated earlier by the same agents' }));
+  else if (r.cached) box.append(html('span', { class: 'tag', text: 'served from cache' }));
   box.hidden = false;
 }
 
 async function runAgents(momentId, playerId = null, opts = {}) {
-  showError("");
-  $("result").hidden = true;
+  showError('');
+  $('result').hidden = true;
   setBusy(true);
   try {
-    const res = await fetch("/api/explain/stream", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ match_id: state.match.id, moment_id: momentId, player_id: playerId,
-        audience: $("audience").value, language: $("language").value }),
+    const res = await fetch('/api/explain/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        match_id: state.match.id,
+        moment_id: momentId,
+        player_id: playerId,
+        audience: $('audience').value,
+        language: $('language').value,
+      }),
     });
     if (!res.ok) throw new Error(await failureText(res));
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "", result = null;
-    for (;;) {
+    let buffer = '';
+    let result = null;
+    const handle = (line) => { // one JSON object per line
+      const ev = JSON.parse(line);
+      if (ev.event === 'plan') renderSteps(ev.agents);
+      else if (ev.event === 'start') markStep(ev.agent, 'active');
+      else if (ev.event === 'done') markStep(ev.agent, 'done', ev.seconds);
+      else if (ev.event === 'revise') showRevise(ev.problems);
+      else if (ev.event === 'result') result = ev.result;
+      else if (ev.event === 'error') throw new Error(ev.message);
+    };
+    let finished = false;
+    while (!finished) {
+      // eslint-disable-next-line no-await-in-loop -- the chunks of a stream must be read in order
       const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let nl;
-      while ((nl = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, nl).trim();
-        buffer = buffer.slice(nl + 1);
-        if (!line) continue;
-        const ev = JSON.parse(line);
-        if (ev.event === "plan") renderSteps(ev.agents);
-        else if (ev.event === "start") markStep(ev.agent, "active");
-        else if (ev.event === "done") markStep(ev.agent, "done", ev.seconds);
-        else if (ev.event === "revise") showRevise(ev.problems);
-        else if (ev.event === "result") result = ev.result;
-        else if (ev.event === "error") throw new Error(ev.message);
+      finished = done;
+      if (!done) {
+        buffer += decoder.decode(value, { stream: true });
+        let nl = buffer.indexOf('\n');
+        while (nl >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (line) handle(line);
+          nl = buffer.indexOf('\n');
+        }
       }
     }
-    if (!result) throw new Error("The agents did not return a result. Please try again.");
+    if (!result) throw new Error('The agents did not return a result. Please try again.');
     renderResult(result);
     if (opts.broadcast) {
       if (result.graphic) openStage(result);
-      else showError("The agents did not return a valid broadcast graphic. Try again.");
+      else showError('The agents did not return a valid broadcast graphic. Try again.');
     }
   } catch (err) {
     showError(friendly(err));
@@ -791,95 +1029,105 @@ function setMatch(data) {
   state.selected = null;
   state.selectedPlayer = null;
   state.selectedWindow = null;
-  $("selected-label").textContent = "Whole match";
-  $("btn-explain").textContent = "Explain this moment";
-  $("btn-explain").disabled = true;
-  $("result").hidden = true;
-  showError("");
-  renderScoreboard(); renderPitch(); renderMomentum(); renderMoments(); renderControl(); renderPlayers();
+  $('selected-label').textContent = 'Whole match';
+  $('btn-explain').textContent = 'Explain this moment';
+  $('btn-explain').disabled = true;
+  $('result').hidden = true;
+  showError('');
+  renderScoreboard();
+  renderPitch();
+  renderMomentum();
+  renderMoments();
+  renderControl();
+  renderPlayers();
   renderXG(); renderPossession(); renderInfo();
 }
 
 async function init() {
   refreshStatus();
   try {
-    const cfg = await api("/api/config");
-    const sel = $("language");
-    for (const [code, name] of Object.entries(cfg.languages)) sel.appendChild(html("option", { value: code, text: name }));
+    const cfg = await api('/api/config');
+    const sel = $('language');
+    Object.entries(cfg.languages).forEach(([code, name]) => { sel.appendChild(html('option', { value: code, text: name })); });
     setMatch(await api(`/api/match/${cfg.matches[0]}`));
-    const wantedPlayer = Number(new URLSearchParams(location.search).get("player"));  // e.g. /?player=6
-    if (wantedPlayer && state.match.players.some((p) => p.id === wantedPlayer)) selectPlayer(wantedPlayer);
-    const wanted = new URLSearchParams(location.search).get("moment");  // deep link, e.g. /?moment=m1
+    const q = new URLSearchParams(window.location.search);
+    const wantedPlayer = Number(q.get('player')); // e.g. /?player=6
+    if (wantedPlayer && state.match.players.some((p) => p.id === wantedPlayer)) {
+      selectPlayer(wantedPlayer);
+    }
+    const wanted = q.get('moment'); // deep link, e.g. /?moment=m1
     if (wanted && state.match.moments.some((m) => m.id === wanted)) {
       select(wanted);
-      const q = new URLSearchParams(location.search);
-      if (q.get("broadcast") === "1") {  // e.g. /?moment=m7&broadcast=1
-        $("audience").value = "broadcaster";
+      if (q.get('broadcast') === '1') { // e.g. /?moment=m7&broadcast=1
+        $('audience').value = 'broadcaster';
         runAgents(wanted, null, { broadcast: true });
-      } else if (q.get("explain") === "1") runAgents(wanted);  // e.g. /?moment=m7&explain=1
+      } else if (q.get('explain') === '1') runAgents(wanted); // e.g. /?moment=m7&explain=1
     }
   } catch (err) {
     showError(`Could not load the match: ${err.message}`);
   }
 }
 
-$("btn-explain").addEventListener("click", () => {
+$('btn-explain').addEventListener('click', () => {
   if (state.selectedPlayer !== null) runAgents(null, state.selectedPlayer);
   else if (state.selected) runAgents(state.selected);
 });
-$("btn-recap").addEventListener("click", () => runAgents(null));
-$("btn-broadcast").addEventListener("click", () => {
-  $("audience").value = "broadcaster";  // the graphic is a broadcaster deliverable
+$('btn-recap').addEventListener('click', () => runAgents(null));
+$('btn-broadcast').addEventListener('click', () => {
+  $('audience').value = 'broadcaster'; // the graphic is a broadcaster deliverable
   if (state.selectedPlayer !== null) runAgents(null, state.selectedPlayer, { broadcast: true });
-  else runAgents(state.selected, null, { broadcast: true });  // nothing selected = match recap graphic
+  // nothing selected = match recap graphic
+  else runAgents(state.selected, null, { broadcast: true });
 });
 function openAbout() {
-  $("about-backdrop").hidden = false;
-  $("about-close").focus();
+  $('about-backdrop').hidden = false;
+  $('about-close').focus();
 }
 function closeAbout() {
-  $("about-backdrop").hidden = true;
-  $("btn-about").focus();
+  $('about-backdrop').hidden = true;
+  $('btn-about').focus();
 }
-$("btn-about").addEventListener("click", openAbout);
+$('btn-about').addEventListener('click', openAbout);
 
-/* ---------- light / dark theme (the early script in index.html applies the saved choice before first paint) ---------- */
+/* ---------- light / dark theme ----------
+   (the early script in index.html applies the saved choice before the first paint) */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  const btn = $("btn-theme");
-  btn.textContent = theme === "light" ? "☾ Dark mode" : "☀ Light mode";
-  btn.setAttribute("aria-label", theme === "light" ? "Switch to dark mode" : "Switch to light mode");
+  const btn = $('btn-theme');
+  btn.textContent = theme === 'light' ? '☾ Dark mode' : '☀ Light mode';
+  btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
 }
-applyTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
-$("btn-theme").addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+$('btn-theme').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
   applyTheme(next);
-  try { localStorage.setItem("theme", next); } catch (_) { /* the choice just is not remembered */ }
+  try { localStorage.setItem('theme', next); } catch (_) { /* the choice just is not remembered */ }
 });
-$("about-close").addEventListener("click", closeAbout);
-$("about-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeAbout(); });
-$("stage-close").addEventListener("click", closeStage);
-$("stage-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeStage(); });
-document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape" && !$("stage-backdrop").hidden) closeStage();
-  if (ev.key === "Escape" && !$("about-backdrop").hidden) closeAbout();
+$('about-close').addEventListener('click', closeAbout);
+$('about-backdrop').addEventListener('click', (ev) => { if (ev.target === ev.currentTarget) closeAbout(); });
+$('stage-close').addEventListener('click', closeStage);
+$('stage-backdrop').addEventListener('click', (ev) => { if (ev.target === ev.currentTarget) closeStage(); });
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && !$('stage-backdrop').hidden) closeStage();
+  if (ev.key === 'Escape' && !$('about-backdrop').hidden) closeAbout();
   // ← → move between moments, only when one is selected and nothing that uses the arrows has focus
-  const typing = ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName);
-  if ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && state.selected && !typing && $("stage-backdrop").hidden && !state.busy) {
+  const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(ev.target.tagName);
+  if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && state.selected && !typing && $('stage-backdrop').hidden && !state.busy) {
     ev.preventDefault();
-    stepMoment(ev.key === "ArrowRight" ? 1 : -1);
+    stepMoment(ev.key === 'ArrowRight' ? 1 : -1);
   }
 });
-$("btn-new").addEventListener("click", async () => {
-  try { setMatch(await api("/api/match/synthetic", { method: "POST" })); } catch (err) { showError(err.message); }
+$('btn-new').addEventListener('click', async () => {
+  try { setMatch(await api('/api/match/synthetic', { method: 'POST' })); } catch (err) { showError(err.message); }
 });
-$("file").addEventListener("change", async (ev) => {
-  const f = ev.target.files[0];
+$('file').addEventListener('change', async (ev) => {
+  const input = ev.target;
+  const f = input.files[0];
   if (!f) return;
   const body = new FormData();
-  body.append("file", f);
-  try { setMatch(await api("/api/match/upload", { method: "POST", body })); } catch (err) { showError(err.message); }
-  ev.target.value = "";
+  body.append('file', f);
+  try { setMatch(await api('/api/match/upload', { method: 'POST', body })); } catch (err) { showError(err.message); }
+  input.value = '';
 });
 
 init();

@@ -1,0 +1,29 @@
+{
+  "root": true,
+  "extends": "airbnb-base",
+  "parserOptions": { "ecmaVersion": 2022 },
+  "rules": {
+    "linebreak-style": "off"
+  },
+  "overrides": [
+    {
+      "files": ["static/**/*.js"],
+      "env": { "browser": true },
+      "parserOptions": { "sourceType": "script" },
+      "rules": {
+        "no-use-before-define": ["error", { "functions": false, "classes": true, "variables": true }]
+      }
+    },
+    {
+      "files": ["tools/**/*.mjs"],
+      "env": { "node": true },
+      "parserOptions": { "sourceType": "module" },
+      "globals": { "WebSocket": "readonly" },
+      "rules": {
+        "no-await-in-loop": "off",
+        "no-console": "off",
+        "no-restricted-syntax": ["error", "ForInStatement", "LabeledStatement", "WithStatement"]
+      }
+    }
+  ]
+}

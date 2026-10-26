@@ -7,3 +7,5 @@ HANDOFF.md
 SUBMISSION_DRAFT.md
 VIDEO_SCRIPT.md
 .claude/
+node_modules/
+package-lock.json

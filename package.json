@@ -1,0 +1,14 @@
+{
+  "name": "match-insights-engine-dev-tools",
+  "private": true,
+  "description": "Development tooling only (JavaScript lint). The app itself has no Node dependencies: it is run with uvicorn.",
+  "scripts": {
+    "lint": "eslint static tools",
+    "lint:fix": "eslint static tools --fix"
+  },
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "eslint-config-airbnb-base": "15.0.0",
+    "eslint-plugin-import": "2.31.0"
+  }
+}

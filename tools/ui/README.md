@@ -14,7 +14,7 @@ and the app running on `http://127.0.0.1:8000`. For results that do not depend o
 | `ui_audit.mjs` | Screenshots every chart and graphic: each moment's replay, each broadcast graphic, recap, players, the cards | `<outDir>` |
 | `ui_select.mjs` | Selection card, previous/next, arrow keys, clickable control cells, players, timing, panel scrolling | `<outDir>` |
 | `ui_about.mjs` | The "How it works" panel, the try-this suggestions, and how an automatic revision is shown (simulated result) | `<outDir>` |
-| `ui_theme.mjs` | Light and dark theme: WCAG contrast of every visible text (page, selection, result, About), toggle label, persistence after reload, all players listed | `<outDir>` |
+| `ui_theme.mjs` | Light and dark theme: WCAG contrast of every visible text (page, selection, result, About; it reports how many texts it checked and fails if it checked too few or could not read a colour), toggle label, persistence after reload, all players listed | `<outDir>` |
 | `ui_narrow.mjs` | Phone (390 px) and tablet (820 px) widths: horizontal overflow, small tap targets, screenshots in both themes and of the broadcast view | `<outDir>` |
 | `ui_shots.mjs` | The README/submission screenshots (selection card, explanation, all players; dark and light) | `<outDir>` |
 | `ui_errors.mjs` | What the user sees when things fail: injected network/HTTP/stream errors, odd and invalid uploads, recovery afterwards | `<outDir> [absolute feed paths]` |
@@ -31,3 +31,5 @@ Notes learned the hard way:
   Stop leftovers with `Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -match "--headless" }`
   and never kill every `msedge.exe`: one of them may be your own browser.
 - `contact_sheet.py` (needs `pip install pillow`) tiles screenshots into one image to review many at once.
+
+Lint: `npm install` then `npm run lint` at the repository root (Airbnb rules, see the README).

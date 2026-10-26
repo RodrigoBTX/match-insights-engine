@@ -35,9 +35,9 @@
   --accent-ink: #ffffff;
   --danger: #c0392b;
   --danger-text: #7f1d1d;
-  --warn: #b45309;
+  --warn: #a34a07;
   --warn-text: #7c3d00;
-  --warn-bg: rgba(180, 83, 9, .08);
+  --warn-bg: rgba(163, 74, 7, .08);
   --accent-soft: rgba(11, 122, 84, .10);
   color-scheme: light;
 }
