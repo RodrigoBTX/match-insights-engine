@@ -16,8 +16,14 @@ def test_scrappy_spell_is_detected_as_chaotic():
     assert len(spells) == 1
     f = spells[0]["facts"]
     assert f["spell_minutes"] == "35-45"
-    assert f["during_spell"]["sequences_per_min"] > 1.5 * f["rest_of_match_average"]["sequences_per_min"]
-    assert f["during_spell"]["avg_passes_per_sequence"] < f["rest_of_match_average"]["avg_passes_per_sequence"]
+    assert (
+        f["during_spell"]["sequences_per_min"]
+        > 1.5 * f["rest_of_match_average"]["sequences_per_min"]
+    )
+    assert (
+        f["during_spell"]["avg_passes_per_sequence"]
+        < f["rest_of_match_average"]["avg_passes_per_sequence"]
+    )
 
 
 def test_red_card_press_shift_is_found_and_trigger_precedes_it():
@@ -25,7 +31,11 @@ def test_red_card_press_shift_is_found_and_trigger_precedes_it():
     press = [s for s in shifts.values() if "press higher" in s["title"]]
     assert press, "expected a press-higher shift after the red card"
     assert press[0]["facts"]["likely_trigger"]["event"] == "red_card"
-    for s in shifts.values():  # a cause never comes after its effect (shifts sit on whole minutes: 1 min tolerance)
+    for (
+        s
+    ) in (
+        shifts.values()
+    ):  # a cause never comes after its effect (shifts sit on whole minutes: 1 min tolerance)
         trig = s["facts"]["likely_trigger"]
         if trig:
             m, sec = trig["minute"].split("'")
@@ -36,4 +46,6 @@ def test_moment_ids_follow_chronological_order():
     moments = an.detect_moments(MATCH)
     times = [(m["minute"], m["second"]) for m in moments]
     assert times == sorted(times)
-    assert [m["id"] for m in moments] == [f"m{i}" for i in range(1, len(moments) + 1)]
+    assert [m["id"] for m in moments] == [
+        f"m{i}" for i in range(1, len(moments) + 1)
+    ]

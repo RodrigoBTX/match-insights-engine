@@ -4,17 +4,28 @@ so synthetic and real data are interchangeable via an adapter.
 Pitch coordinates: 105 x 68 metres. The home team attacks towards x=105,
 the away team towards x=0. Coordinates are absolute (never mirrored).
 """
+
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field
 
 PITCH_W = 105.0
 PITCH_H = 68.0
 
 Side = Literal["home", "away"]
 EventType = Literal[
-    "pass", "shot", "goal", "save", "tackle", "interception",
-    "foul", "yellow_card", "red_card", "corner", "kickoff",
+    "pass",
+    "shot",
+    "goal",
+    "save",
+    "tackle",
+    "interception",
+    "foul",
+    "yellow_card",
+    "red_card",
+    "corner",
+    "kickoff",
 ]
 
 
@@ -45,7 +56,9 @@ class Event(BaseModel):
     y: float
     end_x: float | None = None
     end_y: float | None = None
-    outcome: str | None = None  # complete/incomplete, on_target/off_target/blocked/saved/goal
+    outcome: str | None = (
+        None  # complete/incomplete, on_target/off_target/blocked/saved/goal
+    )
     xg: float | None = None
     speed_kmh: float | None = None  # ball speed for passes and shots
     sequence_id: int | None = None

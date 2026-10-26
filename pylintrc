@@ -1,0 +1,39 @@
+# Pylint settings close to the Google Python Style Guide (google/styleguide pylintrc, trimmed).
+[MAIN]
+ignore=.venv
+
+[FORMAT]
+max-line-length=80
+indent-string='    '
+# URLs and long literal strings are allowed to exceed the limit.
+ignore-long-lines=(?x)(^\s*(\#\ )?<?https?://\S+>?$|^\s*(from\s+\S+\s+)?import\s+.+$)
+
+[BASIC]
+good-names=i,j,k,ex,e,m,x,y,t,s,p,r,w,h,a,b,c,d,f,fp,pl,an,ch,id,_
+# Google: docstrings are required for public functions longer than a few lines.
+docstring-min-length=10
+no-docstring-rgx=(^_|^test_|^Test)
+function-rgx=^(?:(?P<snake>_{0,2}[a-z][a-z0-9_]*)|(?P<test>test_[a-z0-9_]+))$
+const-rgx=^(_?[A-Z][A-Z0-9_]*|__[a-z0-9_]+__|_?[a-z][a-z0-9_]*)$
+
+[MESSAGES CONTROL]
+# Not adopted here: they would force structural rewrites for no user-visible gain.
+disable=
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-lines,
+    too-many-instance-attributes,
+    too-few-public-methods,
+    duplicate-code,
+    fixme,
+    missing-class-docstring,
+    import-error,
+    broad-exception-caught,
+    logging-fstring-interpolation,
+    unnecessary-lambda-assignment
+
+[DESIGN]
+max-returns=10

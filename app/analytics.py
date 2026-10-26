@@ -1,10 +1,13 @@
-"""Deterministic match analytics. All numbers shown to users come from here, never from the LLM:
+"""Deterministic match analytics. All numbers shown to users come from here,
+never from the LLM:
 agents interpret these facts, they do not invent them."""
 
-import math
 from collections import defaultdict
+import math
 
-from .schema import PITCH_W, Event, Match
+from .schema import Event
+from .schema import Match
+from .schema import PITCH_W
 
 OTHER = {"home": "away", "away": "home"}
 
@@ -13,7 +16,9 @@ def _attacking_third(e: Event, x: float) -> bool:
     return x >= 70 if e.side == "home" else x <= 35
 
 
-def score_at(match: Match, t: float, inclusive: bool = False) -> tuple[int, int]:
+def score_at(
+    match: Match, t: float, inclusive: bool = False
+) -> tuple[int, int]:
     h = a = 0
     for e in match.events:
         if e.type != "goal":
@@ -25,12 +30,15 @@ def score_at(match: Match, t: float, inclusive: bool = False) -> tuple[int, int]
 
 
 def goal_role(match: Match, goal: Event) -> str:
-    """What a goal meant in the match, computed from the score line so no one has to infer it.
+    """What a goal meant in the match, computed from the score line so no one
+    has to infer it.
 
     The match-winning goal is the winner's (loser's final total + 1)th goal.
     """
     before_h, before_a = score_at(match, goal.t)
-    own_b, opp_b = (before_h, before_a) if goal.side == "home" else (before_a, before_h)
+    own_b, opp_b = (
+        (before_h, before_a) if goal.side == "home" else (before_a, before_h)
+    )
     own_a = own_b + 1
     final_h, final_a = score_at(match, 10**9)
     final_own, final_opp = (
@@ -90,7 +98,9 @@ def win_probability(
 
 
 def possession_windows(match: Match, size: int = 5) -> list[dict]:
-    counts: dict[int, dict[str, int]] = defaultdict(lambda: {"home": 0, "away": 0})
+    counts: dict[int, dict[str, int]] = defaultdict(
+        lambda: {"home": 0, "away": 0}
+    )
     for e in match.events:
         if e.type == "pass":
             counts[e.minute // size][e.side] += 1
@@ -102,7 +112,8 @@ def possession_windows(match: Match, size: int = 5) -> list[dict]:
             {
                 "start": w * size,
                 "end": (w + 1) * size,
-                # a window without a single pass has no possession figure: None, not an invented 50/50
+                # a window without a single pass has no possession figure: None,
+                # not an invented 50/50
                 "home": round(100 * c["home"] / tot) if tot else None,
                 "away": round(100 * c["away"] / tot) if tot else None,
             }
@@ -123,13 +134,18 @@ def xg_timeline(match: Match) -> list[dict]:
         for s in cum:
             cum[s] += by_min[m][s]
         out.append(
-            {"minute": m, "home": round(cum["home"], 2), "away": round(cum["away"], 2)}
+            {
+                "minute": m,
+                "home": round(cum["home"], 2),
+                "away": round(cum["away"], 2),
+            }
         )
     return out
 
 
 def momentum(match: Match) -> list[dict]:
-    """Per-minute pressure index in [-1, 1]; positive favours home. Smoothed over a 3 minute window."""
+    """Per-minute pressure index in [-1, 1]; positive favours home. Smoothed
+    over a 3 minute window."""
     raw = {"home": defaultdict(float), "away": defaultdict(float)}
     for e in match.events:
         w = 0.0
@@ -151,7 +167,9 @@ def momentum(match: Match) -> list[dict]:
         h = sum(raw["home"][k] for k in range(m - 1, m + 2))
         a = sum(raw["away"][k] for k in range(m - 1, m + 2))
         tot = h + a
-        series.append({"minute": m, "value": round((h - a) / tot, 2) if tot else 0.0})
+        series.append(
+            {"minute": m, "value": round((h - a) / tot, 2) if tot else 0.0}
+        )
     return series
 
 
@@ -169,7 +187,9 @@ def sequences(match: Match) -> dict[int, dict]:
         start, end = own[0], own[-1]
         dur = round(end.t - start.t, 1)
         sx = start.x
-        ex = end.end_x if end.type == "pass" and end.end_x is not None else end.x
+        ex = (
+            end.end_x if end.type == "pass" and end.end_x is not None else end.x
+        )
         progress = round(abs(ex - sx), 1)
         finishing = next((e for e in own if e.type in ("goal", "shot")), None)
         speeds = [e.speed_kmh for e in passes if e.speed_kmh]
@@ -208,7 +228,8 @@ def sequences(match: Match) -> dict[int, dict]:
 
 
 def window_stats(match: Match, start: float, end: float) -> dict:
-    """Aggregate stats between two match minutes (inclusive start, exclusive end)."""
+    """Aggregate stats between two match minutes (inclusive start, exclusive
+    end)."""
     lo, hi = start * 60, end * 60
     ev = [e for e in match.events if lo <= e.t < hi]
     res: dict = {"from_minute": start, "to_minute": end}
@@ -224,7 +245,12 @@ def window_stats(match: Match, start: float, end: float) -> dict:
     }
     res["xg"] = {
         s: round(
-            sum(e.xg or 0 for e in ev if e.type in ("shot", "goal") and e.side == s), 2
+            sum(
+                e.xg or 0
+                for e in ev
+                if e.type in ("shot", "goal") and e.side == s
+            ),
+            2,
         )
         for s in passes
     }
@@ -232,7 +258,9 @@ def window_stats(match: Match, start: float, end: float) -> dict:
         s: sum(
             1
             for e in ev
-            if e.type == "pass" and e.side == s and _attacking_third(e, e.end_x or e.x)
+            if e.type == "pass"
+            and e.side == s
+            and _attacking_third(e, e.end_x or e.x)
         )
         for s in passes
     }
@@ -249,7 +277,8 @@ def window_stats(match: Match, start: float, end: float) -> dict:
     res["field_tilt_pct"] = {
         s: round(100 * ft[s] / ft_total) for s in ft
     }  # share of final-third passes
-    # press height: mean distance from own goal where a side wins the ball (higher = more aggressive press)
+    # press height: mean distance from own goal where a side wins the ball
+    # (higher = more aggressive press)
     res["press_height_m"] = {}
     for s in ("home", "away"):
         xs = [
@@ -257,16 +286,26 @@ def window_stats(match: Match, start: float, end: float) -> dict:
             for e in ev
             if e.type in ("tackle", "interception") and e.side == s
         ]
-        res["press_height_m"][s] = round(sum(xs) / len(xs), 1) if len(xs) >= 3 else None
+        res["press_height_m"][s] = (
+            round(sum(xs) / len(xs), 1) if len(xs) >= 3 else None
+        )
     seq_ids = {
-        e.sequence_id for e in ev if e.sequence_id is not None and e.type == "pass"
+        e.sequence_id
+        for e in ev
+        if e.sequence_id is not None and e.type == "pass"
     }
     res["sequences_per_min"] = round(len(seq_ids) / span, 2)
     n_pass = sum(passes.values())
     res["passes_total"] = n_pass
-    res["avg_passes_per_sequence"] = round(n_pass / len(seq_ids), 1) if seq_ids else 0.0
+    res["avg_passes_per_sequence"] = (
+        round(n_pass / len(seq_ids), 1) if seq_ids else 0.0
+    )
     res["tackles_interceptions"] = {
-        s: sum(1 for e in ev if e.type in ("tackle", "interception") and e.side == s)
+        s: sum(
+            1
+            for e in ev
+            if e.type in ("tackle", "interception") and e.side == s
+        )
         for s in passes
     }
     return res
@@ -276,26 +315,40 @@ def _score_str(h: int, a: int) -> str:
     return f"{h}-{a}"
 
 
-MIN_WINDOW_PASSES = 10        # per 5-minute window
-MIN_SHIFT_WINDOW_PASSES = 30  # per 10-minute window on each side of a candidate shift
+MIN_WINDOW_PASSES = 10  # per 5-minute window
+MIN_SHIFT_WINDOW_PASSES = (
+    30  # per 10-minute window on each side of a candidate shift
+)
 
 
 def control_windows(match: Match, size: int = 5) -> list[dict]:
     """Classify each window as home/away control, balanced or chaotic.
 
-    Control blends possession with field tilt (share of final-third passes). A window is chaotic when
-    possession changes hands much more often than the match average (short sequences, constant turnovers).
+    Control blends possession with field tilt (share of final-third passes). A
+    window is chaotic when
+    possession changes hands much more often than the match average (short
+    sequences, constant turnovers).
     """
-    raw = [window_stats(match, s, min(s + size, 93)) for s in range(0, 93, size)]
-    # A window with too few passes says nothing about control or chaos (gaps in a feed, sparse data): it is
-    # shown as balanced and never counted as chaotic nor used for the match average.
+    raw = [
+        window_stats(match, s, min(s + size, 93)) for s in range(0, 93, size)
+    ]
+    # A window with too few passes says nothing about control or chaos (gaps in
+    # a feed, sparse data): it is
+    # shown as balanced and never counted as chaotic nor used for the match
+    # average.
     dense = [w for w in raw if w["passes_total"] >= MIN_WINDOW_PASSES]
-    mean_spm = (sum(w["sequences_per_min"] for w in dense) / len(dense)) if dense else 1.0
+    mean_spm = (
+        (sum(w["sequences_per_min"] for w in dense) / len(dense))
+        if dense
+        else 1.0
+    )
     mean_spm = mean_spm or 1.0
     out = []
     for w in raw:
         score = {
-            s: round(0.5 * w["possession_pct"][s] + 0.5 * w["field_tilt_pct"][s])
+            s: round(
+                0.5 * w["possession_pct"][s] + 0.5 * w["field_tilt_pct"][s]
+            )
             for s in ("home", "away")
         }
         chaos = round(w["sequences_per_min"] / mean_spm, 2)
@@ -306,7 +359,9 @@ def control_windows(match: Match, size: int = 5) -> list[dict]:
             state = (
                 "chaotic"
                 if chaos >= 1.25
-                else f"{top}_control" if score[top] >= 62 else "balanced"
+                else f"{top}_control"
+                if score[top] >= 62
+                else "balanced"
             )
         out.append(
             {
@@ -325,7 +380,8 @@ def control_windows(match: Match, size: int = 5) -> list[dict]:
 
 
 def chaotic_spells(match: Match) -> list[dict]:
-    """Merge consecutive chaotic windows into spells and compare them with the rest of the match."""
+    """Merge consecutive chaotic windows into spells and compare them with the
+    rest of the match."""
     wins = control_windows(match)
     spells, run = [], []
     for w in wins + [{"state": None}]:
@@ -340,10 +396,14 @@ def chaotic_spells(match: Match) -> list[dict]:
         inside = window_stats(match, start, end)
         h, a = score_at(match, start * 60)
         rest_spm = [
-            w["sequences_per_min"] for w in wins if not start <= w["start"] < end
+            w["sequences_per_min"]
+            for w in wins
+            if not start <= w["start"] < end
         ]
         rest_pps = [
-            w["avg_passes_per_sequence"] for w in wins if not start <= w["start"] < end
+            w["avg_passes_per_sequence"]
+            for w in wins
+            if not start <= w["start"] < end
         ]
         lo, hi = start * 60, end * 60
         ids = [
@@ -380,7 +440,9 @@ def chaotic_spells(match: Match) -> list[dict]:
                     },
                     "during_spell": {k: inside[k] for k in _SHIFT_KEYS},
                     "rest_of_match_average": {
-                        "sequences_per_min": round(sum(rest_spm) / len(rest_spm), 2),
+                        "sequences_per_min": round(
+                            sum(rest_spm) / len(rest_spm), 2
+                        ),
                         "avg_passes_per_sequence": round(
                             sum(rest_pps) / len(rest_pps), 1
                         ),
@@ -408,7 +470,8 @@ _SHIFT_KEYS = (
 
 
 def _shift_score(before: dict, after: dict) -> float:
-    """Home-perspective swing: field tilt points plus 1.5x the change in (home - away) press height."""
+    """Home-perspective swing: field tilt points plus 1.5x the change in (home -
+    away) press height."""
     delta = after["field_tilt_pct"]["home"] - before["field_tilt_pct"]["home"]
     ph = [w["press_height_m"] for w in (before, after)]
     if all(p["home"] is not None and p["away"] is not None for p in ph):
@@ -421,13 +484,17 @@ def _shift_score(before: dict, after: dict) -> float:
 def tactical_shifts(
     match: Match, window: int = 10, threshold: int = 25, max_shifts: int = 3
 ) -> list[dict]:
-    """Find the minutes where territory and pressing swing most between the 10 minutes before and after."""
+    """Find the minutes where territory and pressing swing most between the 10
+    minutes before and after."""
     cands = []
     for t in range(window, 93 - window + 1):
         before, after = window_stats(match, t - window, t), window_stats(
             match, t, t + window
         )
-        if min(before["passes_total"], after["passes_total"]) < MIN_SHIFT_WINDOW_PASSES:
+        if (
+            min(before["passes_total"], after["passes_total"])
+            < MIN_SHIFT_WINDOW_PASSES
+        ):
             continue  # too little play on one side of the cut for a swing to mean anything
         delta = _shift_score(before, after)
         cands.append((abs(delta), t, delta, before, after))
@@ -437,7 +504,9 @@ def tactical_shifts(
         if score < threshold or len(chosen) == max_shifts:
             break
         if all(abs(t - c["t"]) >= window for c in chosen):
-            chosen.append({"t": t, "delta": delta, "before": before, "after": after})
+            chosen.append(
+                {"t": t, "delta": delta, "before": before, "after": after}
+            )
     chosen.sort(key=lambda c: c["t"])
 
     names = {"home": match.home.name, "away": match.away.name}
@@ -445,9 +514,12 @@ def tactical_shifts(
     for c in chosen:
         t, side = c["t"], "home" if c["delta"] > 0 else "away"
         before, after = c["before"], c["after"]
-        # A cause must precede its effect: the latest goal or red card in the 6 minutes up to the shift.
-        # Shifts are located at whole minutes, so an event in the first minute of the "after" window
-        # (which starts at that minute) still counts: tolerance of one minute, never more.
+        # A cause must precede its effect: the latest goal or red card in the 6
+        # minutes up to the shift.
+        # Shifts are located at whole minutes, so an event in the first minute
+        # of the "after" window
+        # (which starts at that minute) still counts: tolerance of one minute,
+        # never more.
         causes = [
             e
             for e in match.events
@@ -462,7 +534,9 @@ def tactical_shifts(
                 "minute": f"{e.minute}'{e.second:02d}",
             }
         pb, pa = before["press_height_m"][side], after["press_height_m"][side]
-        press_delta = round(pa - pb, 1) if pb is not None and pa is not None else None
+        press_delta = (
+            round(pa - pb, 1) if pb is not None and pa is not None else None
+        )
         if press_delta is not None and press_delta >= 8:
             phrase = "press higher up the pitch"
         elif after["field_tilt_pct"][side] >= 60:
@@ -507,7 +581,9 @@ def tactical_shifts(
                         ),
                         "press_height_change_m": press_delta,
                         "sequences_per_min": round(
-                            after["sequences_per_min"] - before["sequences_per_min"], 2
+                            after["sequences_per_min"]
+                            - before["sequences_per_min"],
+                            2,
                         ),
                     },
                     "likely_trigger": trig,
@@ -547,7 +623,9 @@ def detect_moments(match: Match) -> list[dict]:
             after[0] - after[1], left, reds_a["home"], reds_a["away"]
         )
         w_start = max(0, t / 60 - 10)
-        recent = window_stats(match, w_start, t / 60)  # strictly before the moment
+        recent = window_stats(
+            match, w_start, t / 60
+        )  # strictly before the moment
         seq = seqs.get(e.sequence_id) if e.sequence_id is not None else None
         facts = {
             "minute": f"{e.minute}'{e.second:02d}",
@@ -564,7 +642,9 @@ def detect_moments(match: Match) -> list[dict]:
             "win_probability_after": wp_a,
             "last_10_min_before_moment": recent,
             "sequence": (
-                {k: v for k, v in seq.items() if k != "event_ids"} if seq else None
+                {k: v for k, v in seq.items() if k != "event_ids"}
+                if seq
+                else None
             ),
             "red_cards_so_far": reds_a,
         }
@@ -619,14 +699,19 @@ def detect_moments(match: Match) -> list[dict]:
 def match_summary(match: Match) -> dict:
     h, a = score_at(match, 10**9)
     shots = {
-        s: sum(1 for e in match.events if e.type in ("shot", "goal") and e.side == s)
+        s: sum(
+            1
+            for e in match.events
+            if e.type in ("shot", "goal") and e.side == s
+        )
         for s in ("home", "away")
     }
     on_target = {
         s: sum(
             1
             for e in match.events
-            if e.type in ("goal",) or (e.type == "shot" and e.outcome == "saved")
+            if e.type in ("goal",)
+            or (e.type == "shot" and e.outcome == "saved")
             if e.side == s
         )
         for s in ("home", "away")
@@ -657,10 +742,14 @@ def match_summary(match: Match) -> dict:
         "cards": {
             s: {
                 "yellow": sum(
-                    1 for e in match.events if e.type == "yellow_card" and e.side == s
+                    1
+                    for e in match.events
+                    if e.type == "yellow_card" and e.side == s
                 ),
                 "red": sum(
-                    1 for e in match.events if e.type == "red_card" and e.side == s
+                    1
+                    for e in match.events
+                    if e.type == "red_card" and e.side == s
                 ),
             }
             for s in ("home", "away")
