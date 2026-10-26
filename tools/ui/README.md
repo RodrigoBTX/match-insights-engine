@@ -13,6 +13,7 @@ and the app running on `http://127.0.0.1:8000`. For results that do not depend o
 |---|---|---|
 | `ui_audit.mjs` | Screenshots every chart and graphic: each moment's replay, each broadcast graphic, recap, players, the cards | `<outDir>` |
 | `ui_select.mjs` | Selection card, previous/next, arrow keys, clickable control cells, players, timing, panel scrolling | `<outDir>` |
+| `ui_about.mjs` | The "How it works" panel, the try-this suggestions, and how an automatic revision is shown (simulated result) | `<outDir>` |
 | `ui_demo.mjs` | The walk of someone without Azure: badge, recorded result, language fallback, player, broadcast, new match | `<outDir>` |
 | `ui_broadcast.mjs` | Opens the broadcast view for one target and captures it | `<outDir> <moment text or player:Name or recap> [language] [file.png]` |
 | `ui_upload.mjs` | Loads real-feed fixtures through the page's file input | `<outDir> <file1> [file2 ...]` |

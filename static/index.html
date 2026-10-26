@@ -17,6 +17,7 @@
   </div>
   <div class="actions">
     <span id="mode" class="mode" role="status">● Checking agents…</span>
+    <button id="btn-about" class="ghost" type="button">How it works</button>
     <button id="btn-new" class="ghost" type="button">New synthetic match</button>
     <label class="ghost file" title="Opta F24 XML or StatsBomb-style event JSON">
       Load real event feed
@@ -108,11 +109,56 @@
         title="Generate an on-screen lower-third graphic for the current selection">Broadcast view</button>
 
       <div id="steps" class="steps" hidden></div>
+      <div id="revise" class="revise" role="status" hidden></div>
       <div id="error" class="error" role="alert" hidden></div>
       <article id="result" class="result" hidden></article>
     </div>
   </aside>
 </main>
+
+<div id="about-backdrop" class="about-backdrop" hidden>
+  <div class="about" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div class="about-head">
+      <h2 id="about-title">How it works</h2>
+      <button id="about-close" class="ghost" type="button">Close (Esc)</button>
+    </div>
+    <p>A synthetic match is turned into <b>explanations you can check</b>. Everything you can click here (figures,
+      replays, momentum, control vs chaos, players) is <b>computed from the match data</b>. Only the wording of an
+      explanation is written by AI, and what the AI writes is checked before you see it.</p>
+
+    <div class="flow" aria-label="Pipeline">
+      <div class="node"><b>1. Events</b>Synthetic match; adapters for Opta F24 and StatsBomb feeds</div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><b>2. Facts, in code</b>xG, momentum, win probability, control vs chaos, goal roles</div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><b>3. Four agents</b>Analyst (queries the facts with tools), Narrator, Verifier, Localiser: Microsoft Foundry + Agent Framework</div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><b>4. Checks, in code</b>every figure traced to the data; wording and goal roles checked; one rewrite if flagged</div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><b>5. Screen</b>Text, computed figures for both teams, on-air graphic</div>
+    </div>
+
+    <h3>Why you can trust it</h3>
+    <ul>
+      <li>The figures on screen are never written by the model: they are computed and always name both teams.</li>
+      <li>A Verifier agent checks each claim; a deterministic guard checks that every number in the text exists in the data.</li>
+      <li>When a check flags the first draft, the Narrator rewrites it once with the reason; the page says so.</li>
+      <li>A badge shows <b>Live agents</b> or <b>Recorded demo</b>; recorded results are always labelled.</li>
+    </ul>
+
+    <h3>Measured quality</h3>
+    <p id="about-quality">Measured in three runs of 49 explanations (one on the demo match, two on matches nothing was tuned on): <b>90 to 98%</b> pass every automatic check on the first draft and <b>96 to 100%</b> after the automatic rewrite. Chaotic spells are the hardest case. This counts detectable errors; it does not judge how well the text is written. Every run is in the quality report.</p>
+
+    <h3>Limits</h3>
+    <ul>
+      <li>The match is synthetic, and the Opta and StatsBomb adapters were only tested on small files.</li>
+      <li>The checks find errors that rules can find; they cannot judge whether the writing is good.</li>
+      <li>The Verifier is itself a language model: it is not reliable on its own.</li>
+    </ul>
+    <p class="about-links"><a href="https://github.com/RodrigoBTX/match-insights-engine" target="_blank" rel="noopener">Code</a> ·
+      <a href="https://github.com/RodrigoBTX/match-insights-engine/blob/main/docs/quality_report.md" target="_blank" rel="noopener">Quality report</a></p>
+  </div>
+</div>
 
 <div id="stage-backdrop" class="stage-backdrop" hidden>
   <div class="stage-wrap">

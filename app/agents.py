@@ -280,9 +280,94 @@ def _delivery(audience: str, language: str) -> str:
     return f"Delivery request (for the Localiser): audience = {AUDIENCES[audience]}; language = {LANGUAGES[language]}."
 
 
+MAX_REVISIONS = 1  # one revision at most: it costs a full second pass, so it must stay the exception
+
+# A line that ends by saying there is no issue is a comment on a supported claim, not an issue.
+_NOT_AN_ISSUE = re.compile(r"\bno (strict |further |other |real )?issues?( here| found)?\W*$", re.I)
+
+
+def moment_guidance(match: Match, moment: dict | None) -> str:
+    """Extra instruction for the one kind of moment the models keep framing around a single team."""
+    if moment is None or moment["facts"].get("event") != "chaotic_spell":
+        return ""
+    minutes = str(moment["facts"].get("spell_minutes", "")).replace("-", " and ")
+    return (f"\n\nHeadline guidance: this is a loss of control by BOTH teams, so the headline and the graphic title must "
+            f"name {match.home.name} and {match.away.name}, or neither of them. For example: \"Both teams lose control "
+            f"between minutes {minutes}\".")
+
+
+def real_issues(issues) -> list[str]:
+    return [str(i) for i in (issues or []) if not _NOT_AN_ISSUE.search(str(i).strip())]
+
+
+def result_problems(result: dict, audience: str) -> list[str]:
+    """Everything the automatic checks object to, as sentences the Narrator can act on."""
+    v = result.get("verification") or {}
+    problems = [f"The checks flagged: {issue}" for issue in (v.get("issues") or [])]
+    untraced = (v.get("numeric_check") or {}).get("unverified") or []
+    if untraced:
+        problems.append("These figures are not in the data and must not be used: " + ", ".join(map(str, untraced)))
+    if audience == "broadcaster" and not result.get("graphic"):
+        problems.append("The broadcast graphic (title and line) is missing or malformed.")
+    return problems
+
+
+def revision_request(problems: list[str]) -> str:
+    return ("\n\nREVISION REQUEST. A previous draft of this explanation was rejected by the automatic checks:\n"
+            + "\n".join(f"- {p}" for p in problems)
+            + "\nWrite a corrected version. Fix exactly these points, use only figures from the facts and tool "
+              "results, and keep the same JSON format.")
+
+
 async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], audience: str,
-                       language: str, player: dict | None = None) -> AsyncIterator[dict]:
-    """Yield progress events, then a final {"event": "result", ...}."""
+                       language: str, player: dict | None = None, revise: bool = True) -> AsyncIterator[dict]:
+    """Yield progress events, then a final {"event": "result", ...}.
+
+    When the automatic checks object to the first draft, the explanation is rewritten once with the reasons
+    ("verify -> revise"). The better of the two drafts is kept and the result says what happened.
+    """
+    first: dict | None = None
+    for attempt in (1, 2):
+        try:
+            async for ev in _run_once(match, moment, moments, audience, language, player):
+                if ev["event"] == "result":
+                    first = ev["result"]
+                else:
+                    yield ev
+            break
+        except ValueError:  # json.JSONDecodeError: the model returned malformed JSON; one more attempt, then fail
+            if attempt == 2:
+                raise
+            yield {"event": "retry", "reason": "the model returned malformed JSON"}
+            first = None
+    problems = result_problems(first, audience)
+    if not revise or not problems or MAX_REVISIONS < 1:
+        yield {"event": "result", "result": first}
+        return
+
+    yield {"event": "revise", "problems": problems[:3]}
+    second: dict | None = None
+    error = None
+    try:
+        async for ev in _run_once(match, moment, moments, audience, language, player, feedback=problems):
+            if ev["event"] == "result":
+                second = ev["result"]
+            else:
+                yield ev
+    except Exception as exc:  # a failed revision must never cost the first draft
+        error = str(exc)[:200]
+    remaining = result_problems(second, audience) if second else problems
+    best, kept = (second, "revised") if second is not None and len(remaining) <= len(problems) else (first, "first")
+    best = {**best, "revision": {"attempted": True, "first_problems": problems, "fixed": not result_problems(best, audience),
+                                 "kept": kept, **({"error": error} if error else {})}}
+    best["trace"] = [*first["trace"], {"agent": "Checks", "note": "flagged a problem, revised once"},
+                     *((second or {}).get("trace", []) if kept == "revised" else [])]
+    yield {"event": "result", "result": best}
+
+
+async def _run_once(match: Match, moment: dict | None, moments: list[dict], audience: str,
+                    language: str, player: dict | None = None, feedback: list[str] | None = None) -> AsyncIterator[dict]:
+    """One pass of the four-agent workflow (the unit that run_pipeline may repeat)."""
     trace: list[dict] = []
     evidence: list[str] = []
     c = client()
@@ -294,7 +379,7 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     elif moment is not None:
         agents = [Agent(c, ANALYST_PROMPT, name="Analyst", tools=make_tools(match, trace, evidence)),
                   Agent(c, NARRATOR_PROMPT + extra, name="Narrator")]
-        task = "Moment facts:\n" + json.dumps(moment["facts"])
+        task = "Moment facts:\n" + json.dumps(moment["facts"]) + moment_guidance(match, moment)
     else:
         agents = [Agent(c, RECAP_NARRATOR_PROMPT + extra, name="Narrator")]
         keys = ("minute", "player", "xg", "score_before", "score_after", "win_probability_before",
@@ -312,7 +397,9 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
     workflow = SequentialBuilder(participants=agents, intermediate_output_from="all").build()
     started: dict[str, float] = {}
     texts: dict[str, str] = {}
-    async for ev in workflow.run(task + "\n\n" + _delivery(audience, language), stream=True):
+    # `task` (the facts) alone feeds the numeric guard below: the feedback text must not make a figure "allowed"
+    prompt = task + "\n\n" + _delivery(audience, language) + (revision_request(feedback) if feedback else "")
+    async for ev in workflow.run(prompt, stream=True):
         if ev.executor_id not in names:
             continue
         if ev.type == "executor_invoked":
@@ -330,6 +417,7 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
         verification = parse_json(texts["Verifier"])
     except (ValueError, KeyError):
         verification = {"verdict": "unknown", "claims_checked": 0, "issues": []}
+    verification["issues"] = real_issues(verification.get("issues"))
     final.setdefault("stat_chips", [])
     graphic = None
     if audience == "broadcaster":
@@ -354,9 +442,9 @@ async def run_pipeline(match: Match, moment: dict | None, moments: list[dict], a
 
 
 async def explain(match: Match, moment: dict | None, moments: list[dict], audience: str, language: str,
-                  player: dict | None = None) -> dict:
+                  player: dict | None = None, revise: bool = True) -> dict:
     result: dict = {}
-    async for ev in run_pipeline(match, moment, moments, audience, language, player):
+    async for ev in run_pipeline(match, moment, moments, audience, language, player, revise):
         if ev["event"] == "result":
             result = ev["result"]
     return result

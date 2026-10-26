@@ -22,9 +22,11 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+from app import analytics as an
 from app import demo
 from app import players as pl
 from app.agents import explain
+from app.generator import generate_match
 from app.main import MATCHES, MOMENTS
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "quality_report.md"
@@ -108,6 +110,12 @@ async def run_one(t: dict, match, moments) -> dict:
     if t["audience"] == "broadcaster" and not result.get("graphic"):
         rec["reasons"].append("missing graphic")
     rec["reasons"] += [f"goal role: {m}" for m in role_mismatches(result, t["moment"], t["language"])]
+    rv = result.get("revision") or {}  # present only when the automatic checks flagged the first draft
+    rec["revised"] = bool(rv)
+    rec["revision_kept"] = rv.get("kept")
+    rec["revision_error"] = rv.get("error")
+    rec["first_problems"] = [p.replace("The checks flagged: ", "") for p in rv.get("first_problems", [])]
+    rec["raw_clean"] = not rec["revised"] and not rec["reasons"]  # a clean FIRST draft: nothing flagged, nothing revised
     return rec
 
 
@@ -122,9 +130,22 @@ def category(reason: str) -> str:
     return "other"
 
 
-def write_report(records: list[dict], model: str) -> str:
+def write_report(records: list[dict], model: str, seed: int = 7) -> str:
     n = len(records)
     ok = [r for r in records if not r["reasons"]]
+    raw_ok = [r for r in records if r.get("raw_clean", not r["reasons"])]
+    revised = [r for r in records if r.get("revised")]
+    kept_revised = sum(1 for r in revised if r.get("revision_kept") == "revised")
+    kept_first = sum(1 for r in revised if r.get("revision_kept") == "first")
+    revision_errors = sum(1 for r in revised if r.get("revision_error"))
+    if seed == 7:
+        match_line = "the synthetic demo match (seed 7), the one used while tuning the prompts and rules"
+        heldout = []
+    else:
+        match_line = f"a different synthetic match (seed {seed})"
+        heldout = ["> **Held-out measurement.** No prompt or rule was changed after looking at this match. It has the "
+                   "same scripted story as the demo match (same minutes), only the random play and the figures differ, "
+                   "so it is a partly independent check, not a different football match.", ""]
     lines = [
         "# Quality report: first-try results", "",
         f"Generated {date.today().isoformat()} with `{model}`. Command: `python -m scripts.quality_report`.", "",
@@ -134,8 +155,12 @@ def write_report(records: list[dict], model: str) -> str:
         "graphic exists, a chaotic-spell text does not name just one team, and a goal headline or graphic does not call "
         "the goal the winner, the equaliser or the opener when the computed goal role says otherwise. "
         "**It does not mean the writing is good or useful.** Titles can still be generic and grammar can still slip.", "",
-        "## Result", "", f"- Cases: **{n}** (match: the synthetic demo match, seed 7)",
-        f"- Clean on the first try: **{pct(len(ok), n)}**", ""]
+        *heldout,
+        "## Result", "", f"- Cases: **{n}** (match: {match_line})",
+        f"- Clean on the **first draft** (nothing flagged, no revision needed): **{pct(len(raw_ok), n)}**",
+        f"- Clean **after the automatic revision**, which is what the user sees: **{pct(len(ok), n)}**",
+        f"- Revisions triggered: {len(revised)}; the revised draft was kept in {kept_revised}, the first draft in "
+        f"{kept_first} (revision errors: {revision_errors}).", ""]
     by_cat = defaultdict(int)
     for r in records:
         for c in {category(x) for x in r["reasons"]}:
@@ -146,8 +171,9 @@ def write_report(records: list[dict], model: str) -> str:
         groups = defaultdict(list)
         for r in records:
             groups[r[key]].append(r)
-        lines += ["", f"### {title}", "", "| Group | Clean first try |", "|---|---|"]
-        lines += [f"| {g} | {pct(sum(1 for r in rs if not r['reasons']), len(rs))} |" for g, rs in sorted(groups.items())]
+        lines += ["", f"### {title}", "", "| Group | Clean first draft | Clean after revision |", "|---|---|---|"]
+        lines += [f"| {g} | {pct(sum(1 for r in rs if r.get('raw_clean', not r['reasons'])), len(rs))} | "
+                  f"{pct(sum(1 for r in rs if not r['reasons']), len(rs))} |" for g, rs in sorted(groups.items())]
     times = [r["seconds"] for r in records if not any(x.startswith("pipeline error") for x in r["reasons"])]
     per_agent = defaultdict(list)
     for r in records:
@@ -158,7 +184,15 @@ def write_report(records: list[dict], model: str) -> str:
                   f"slowest {max(times):.1f} s ({len(times)} runs, {CONCURRENCY} in parallel)",
                   "- Mean per agent: " + ", ".join(f"{a} {statistics.mean(s):.1f} s" for a, s in per_agent.items()),
                   "- Recorded results and the selection card are instant; only a new live explanation pays this cost."]
-    lines += ["", "## Failing cases", ""]
+    lines += ["", "## Revised cases (the first draft was flagged and rewritten once)", ""]
+    if revised:
+        for r in revised:
+            outcome = "fixed" if not r["reasons"] else "still flagged"
+            lines.append(f"- **{r['label']}** ({outcome}; kept the {r.get('revision_kept', '?')} draft)")
+            lines += [f"  - flagged: {x[:200]}" for x in r.get("first_problems", [])[:3]]
+    else:
+        lines.append("None.")
+    lines += ["", "## Failing cases (after revision)", ""]
     failing = [r for r in records if r["reasons"]]
     if failing:
         for r in failing:
@@ -182,9 +216,14 @@ async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only", default="", help="only cases whose label contains this text (e.g. 'Chaotic')")
-    ap.add_argument("--out", default=str(OUT), help="where to write the report")
+    ap.add_argument("--seed", type=int, default=7, help="synthetic match to measure (7 = the demo match)")
+    ap.add_argument("--out", default="", help="where to write the report (default depends on the seed)")
     args = ap.parse_args()
-    match, moments = MATCHES[demo.DEMO_MATCH_ID], MOMENTS[demo.DEMO_MATCH_ID]
+    if args.seed == 7:
+        match, moments = MATCHES[demo.DEMO_MATCH_ID], MOMENTS[demo.DEMO_MATCH_ID]
+    else:  # a match nothing was tuned on; moments are detected the same way the app does it
+        match = generate_match(args.seed)
+        moments = an.detect_moments(match)
     targets = build_targets(match, moments)
     if args.only:
         targets = [t for t in targets if args.only.lower() in label(t).lower()]
@@ -204,12 +243,13 @@ async def main() -> int:
 
     await asyncio.gather(*(worker(t) for t in targets))
     records.sort(key=lambda r: r["label"])
-    report = write_report(records, os.environ.get("FOUNDRY_MODEL", "unknown"))
-    out = Path(args.out)
+    report = write_report(records, os.environ.get("FOUNDRY_MODEL", "unknown"), args.seed)
+    out = Path(args.out) if args.out else (OUT if args.seed == 7 else OUT.with_name(f"quality_report_seed{args.seed}.md"))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     ok = sum(1 for r in records if not r["reasons"])
-    print(f"\nClean on the first try: {pct(ok, len(records))}. Report: {out}")
+    raw = sum(1 for r in records if r.get("raw_clean"))
+    print(f"\nClean on the first draft: {pct(raw, len(records))} | after revision: {pct(ok, len(records))}. Report: {out}")
     return 0
 
 

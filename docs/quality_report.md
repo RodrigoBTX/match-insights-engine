@@ -6,62 +6,79 @@ Every case ran **once**; the first result counts (no retries on quality, unlike 
 
 **What a pass means:** the verifier flagged nothing, every figure in the text traces to the data, the broadcast graphic exists, a chaotic-spell text does not name just one team, and a goal headline or graphic does not call the goal the winner, the equaliser or the opener when the computed goal role says otherwise. **It does not mean the writing is good or useful.** Titles can still be generic and grammar can still slip.
 
-
-> **Read this first.** This is the **second** run. The first run ([quality_report_run1.md](quality_report_run1.md): 84%, 41/49) exposed failures that were then fixed (the Verifier prompt, which listed supported claims as issues and still asked for figure cards that are now computed, and a stricter chaotic-spell rule). The fixes were made after seeing those failures, on the same 49 cases, so this run shows whether the fixes work, **not** the quality on unseen cases. The chaotic spell is still the weak spot: 2 of 4 cases fail.
-
 ## Result
 
-- Cases: **49** (match: the synthetic demo match, seed 7)
-- Clean on the first try: **96% (47/49)**
+- Cases: **49** (match: the synthetic demo match (seed 7), the one used while tuning the prompts and rules)
+- Clean on the **first draft** (nothing flagged, no revision needed): **90% (44/49)**
+- Clean **after the automatic revision**, which is what the user sees: **96% (47/49)**
+- Revisions triggered: 4; the revised draft was kept in 3, the first draft in 1 (revision errors: 0).
 
 ### Why cases failed (a case can fail for more than one reason)
 
 | Reason | Cases |
 |---|---|
-| wording | 2 |
+| wording | 1 |
+| verifier | 1 |
+| pipeline error | 1 |
 
 ### By audience
 
-| Group | Clean first try |
-|---|---|
-| broadcaster | 95% (20/21) |
-| casual_fan | 94% (16/17) |
-| coach | 100% (11/11) |
+| Group | Clean first draft | Clean after revision |
+|---|---|---|
+| broadcaster | 90% (19/21) | 95% (20/21) |
+| casual_fan | 100% (17/17) | 100% (17/17) |
+| coach | 73% (8/11) | 91% (10/11) |
 
 ### By language
 
-| Group | Clean first try |
-|---|---|
-| en | 97% (38/39) |
-| pt | 90% (9/10) |
+| Group | Clean first draft | Clean after revision |
+|---|---|---|
+| en | 90% (35/39) | 97% (38/39) |
+| pt | 90% (9/10) | 90% (9/10) |
 
 ### By kind of target
 
-| Group | Clean first try |
-|---|---|
-| big_chance | 100% (8/8) |
-| chaotic_spell | 50% (2/4) |
-| goal | 100% (12/12) |
-| player | 100% (6/6) |
-| recap | 100% (3/3) |
-| red_card | 100% (4/4) |
-| tactical_shift | 100% (12/12) |
+| Group | Clean first draft | Clean after revision |
+|---|---|---|
+| big_chance | 88% (7/8) | 100% (8/8) |
+| chaotic_spell | 25% (1/4) | 75% (3/4) |
+| goal | 100% (12/12) | 100% (12/12) |
+| player | 100% (6/6) | 100% (6/6) |
+| recap | 67% (2/3) | 67% (2/3) |
+| red_card | 100% (4/4) | 100% (4/4) |
+| tactical_shift | 100% (12/12) | 100% (12/12) |
 
 ## Speed (live agents)
 
-- Per explanation: median 10.6 s, slowest 26.0 s (49 runs, 2 in parallel)
-- Mean per agent: Analyst 3.9 s, Narrator 2.1 s, Verifier 1.1 s, Localiser 3.7 s
+- Per explanation: median 11.1 s, slowest 35.1 s (48 runs, 2 in parallel)
+- Mean per agent: Analyst 3.9 s, Narrator 2.5 s, Verifier 1.0 s, Localiser 3.7 s
 - Recorded results and the selection card are instant; only a new live explanation pays this cost.
 
-## Failing cases
+## Revised cases (the first draft was flagged and rewritten once)
+
+- **Big chance saved – Northbridge FC / coach / en** (fixed; kept the revised draft)
+  - flagged: These figures are not in the data and must not be used: 34.5, 44.5
+- **Chaotic spell – 35' to 45' / broadcaster / en** (fixed; kept the revised draft)
+  - flagged: headline: A chaotic spell concerns both teams, but the text names only one of them.
+- **Chaotic spell – 35' to 45' / broadcaster / pt** (still flagged; kept the first draft)
+  - flagged: Claim 'Both teams lose control in chaotic ten-minute spell' is not explicitly supported; the facts show Northbridge FC increased possession and pressure, not both teams losing control.
+  - flagged: Claim 'Possession tilted towards Northbridge FC' is supported, but the phrase 'both teams experienced... with rapid possession changes and shorter sequences' is ambiguous and slightly imprecise; posse
+  - flagged: Claim 'filure of shots and disrupted play without a change in score' is partially supported but no mention of 'flurry of shots' in facts; only number of shots during spell is mentioned (5 for home and
+- **Chaotic spell – 35' to 45' / coach / en** (fixed; kept the revised draft)
+  - flagged: headline: A chaotic spell concerns both teams, but the text names only one of them.
+
+## Failing cases (after revision)
 
 - **Chaotic spell – 35' to 45' / broadcaster / pt**
-  - text: _Fase caótica entre os minutos 35 e 45 com domínio do Northbridge FC | Fase caótica entre os minutos 35 e 45 | Posse, sequências e perdas de bola durante esta fase intensa de jogo._
-  - wording: headline: A chaotic spell concerns both teams, but the text names only one of them.
-  - wording: explanation: A chaotic spell concerns both teams, but the text names only one of them.
-- **Chaotic spell – 35' to 45' / casual_fan / en**
-  - text: _Northbridge FC fights back fiercely in chaotic spell_
-  - wording: headline: A chaotic spell concerns both teams, but the text names only one of them.
+  - text: _Fase caótica entre Northbridge FC e Eastport United com controlo a favor do Northbridge | Período caótico de posse e pressão | Momento intenso com mais sequências rápidas e domínio territorial do Northbridge FC_
+  - verifier: Claim 'Both teams lose control in chaotic ten-minute spell' is not explicitly supported; the facts show Northbridge FC increased possession and pressure, not both teams losing control.
+  - verifier: Claim 'Possession tilted towards Northbridge FC' is supported, but the phrase 'both teams experienced... with rapid possession changes and shorter sequences' is ambiguous and slightly imprecise; possession notably shifted to Northbridge FC.
+  - verifier: Claim 'filure of shots and disrupted play without a change in score' is partially supported but no mention of 'flurry of shots' in facts; only number of shots during spell is mentioned (5 for home and 1 for away), which may not justify 'flurry' term.
+  - verifier: Claim 'Both teams turned the ball over more frequently' is supported by turnovers per minute increasing from 2.3 to 4.5. No issue here.
+  - verifier: Claim 'This spell highlights how quickly momentum can shift and control can be lost by both teams simultaneously' is unsupported; facts show Northbridge seized more control and Eastport had reduced shots and possession.
+  - wording: graphic line: A chaotic spell concerns both teams, but the text names only one of them.
+- **match recap / coach / en**
+  - pipeline error: Expecting ':' delimiter: line 1 column 2138 (char 2137)
 
 Infrastructure retries (rate limit and similar, not counted as quality): 0.
 

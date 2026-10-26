@@ -23,11 +23,30 @@ def test_the_goal_role_check_catches_the_known_failure_and_accepts_correct_wordi
     assert q.role_mismatches(wrong, None, "en") == []
 
 
-def test_report_counts_failures_and_never_claims_more_than_it_measured():
-    ok = {"label": "a", "kind": "goal", "audience": "coach", "language": "en", "seconds": 10.0, "retries": 0,
-          "reasons": [], "claims": 5, "agent_seconds": {"Analyst": 8.0}}
-    bad = {**ok, "label": "b", "reasons": ["untraced figures: ['99']", "wording: one-sided"]}
-    text = q.write_report([ok, bad], "model-x")
-    assert "Clean on the first try: **50% (1/2)**" in text
+def record(label="a", reasons=(), revised=False, kept=None, first=()):
+    return {"label": label, "kind": "goal", "audience": "coach", "language": "en", "seconds": 10.0, "retries": 0,
+            "reasons": list(reasons), "claims": 5, "agent_seconds": {"Analyst": 8.0}, "text": "",
+            "revised": revised, "revision_kept": kept, "revision_error": None, "first_problems": list(first),
+            "raw_clean": not revised and not reasons}
+
+
+def test_report_separates_the_first_draft_from_the_revised_result_and_never_claims_more_than_it_measured():
+    cases = [record("clean"),
+             record("fixed", revised=True, kept="revised", first=["headline: names only one team"]),
+             record("still bad", reasons=["untraced figures: ['99']"], revised=True, kept="first", first=["x"]),
+             record("bad no revision", reasons=["goal role: wrong"])]
+    text = q.write_report(cases, "model-x")
+    assert "first draft** (nothing flagged, no revision needed): **25% (1/4)**" in text
+    assert "after the automatic revision**, which is what the user sees: **50% (2/4)**" in text
+    assert "Revisions triggered: 2; the revised draft was kept in 1, the first draft in 1" in text
     assert "does not mean the writing is good" in text and "ran **once**" in text
-    assert "| untraced figures | 1 |" in text and "| wording | 1 |" in text
+    assert "## Revised cases" in text and "**fixed** (fixed; kept the revised draft)" in text
+    assert "names only one team" in text  # what was flagged is shown, not just counted
+    assert "| untraced figures | 1 |" in text and "| goal role | 1 |" in text
+
+
+def test_a_different_seed_is_labelled_as_a_held_out_measurement():
+    own = q.write_report([record()], "m", seed=7)
+    other = q.write_report([record()], "m", seed=11)
+    assert "Held-out" not in own and "used while tuning" in own
+    assert "Held-out measurement" in other and "seed 11" in other and "partly independent" in other

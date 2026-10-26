@@ -459,6 +459,14 @@ function miniPitch(moment, player, label) {
   return mini;
 }
 
+/* A few good places to start for someone who has never seen the match. */
+function tryThisMoments() {
+  const ms = state.match.moments;
+  const find = (f) => ms.find(f);
+  const goal = find((x) => x.type === "goal" && /equaliser/.test(x.facts.goal_role || "")) || find((x) => x.type === "goal");
+  return [find((x) => x.type === "red_card"), goal, find((x) => x.type === "chaotic_spell")].filter(Boolean);
+}
+
 /* Everything shown here already exists in the page data: no request, no agent, no waiting. */
 function renderInfo() {
   const box = $("info");
@@ -528,6 +536,15 @@ function renderInfo() {
   } else {
     box.append(html("p", { class: "info-hint",
       text: "Select a marker on the timeline, a square in Control vs chaos or a player to see its key figures and a small replay here. Move between moments with ◀ ▶ or the arrow keys." }));
+    const tips = tryThisMoments();
+    if (tips.length) {
+      box.append(html("p", { class: "info-hint", style: "margin-top:10px", text: "Not sure where to start? Try:" }));
+      for (const mo of tips) {
+        const b = html("button", { class: "ghost tip", type: "button", text: `▶ ${mo.facts.minute} ${mo.title}` });
+        b.addEventListener("click", () => select(mo.id));
+        box.append(b);
+      }
+    }
   }
 }
 
@@ -604,8 +621,15 @@ const ROLE = {
   Localiser: "Localiser – adapting audience and language",
 };
 
+function showRevise(problems) {
+  const box = $("revise");
+  box.textContent = `The automatic checks flagged the draft (${String(problems[0] || "").replace(/^The checks flagged: /, "").slice(0, 140)}). Rewriting it once…`;
+  box.hidden = false;
+}
+
 function setBusy(on) {
   state.busy = on;
+  $("revise").hidden = true;
   $("btn-recap").disabled = on;
   $("btn-broadcast").disabled = on;
   $("btn-explain").disabled = on || !hasSelection();
@@ -663,8 +687,15 @@ function renderResult(r) {
   if (r.trace?.length) {
     const li = r.trace.map((t) => t.tool
       ? html("li", {}, [`${t.agent} called `, html("code", { text: `${t.tool}(${Object.values(t.args).join(", ")})` })])
+      : t.note ? html("li", { text: `${t.agent}: ${t.note}` })
       : html("li", { text: `${t.agent} finished in ${t.seconds}s` }));
     box.append(html("details", { class: "trace" }, [html("summary", { text: "How the agents got here" }), html("ul", {}, li)]));
+  }
+  if (r.revision?.attempted) {
+    const rv = r.revision, first = (rv.first_problems || [])[0] || "a problem";
+    box.prepend(html("div", { class: "fallback-note", text: rv.kept === "revised"
+      ? `The automatic checks flagged the first draft ("${first.replace(/^The checks flagged: /, "").slice(0, 160)}"). It was rewritten once${rv.fixed ? " and the new draft passes every check." : ", but the new draft is still flagged."}`
+      : "The automatic checks flagged the first draft; a rewrite did not improve it, so the first draft is shown." }));
   }
   if (r.fallback) {
     const f = r.fallback;
@@ -703,6 +734,7 @@ async function runAgents(momentId, playerId = null, opts = {}) {
         if (ev.event === "plan") renderSteps(ev.agents);
         else if (ev.event === "start") markStep(ev.agent, "active");
         else if (ev.event === "done") markStep(ev.agent, "done", ev.seconds);
+        else if (ev.event === "revise") showRevise(ev.problems);
         else if (ev.event === "result") result = ev.result;
         else if (ev.event === "error") throw new Error(ev.message);
       }
@@ -769,10 +801,22 @@ $("btn-broadcast").addEventListener("click", () => {
   if (state.selectedPlayer !== null) runAgents(null, state.selectedPlayer, { broadcast: true });
   else runAgents(state.selected, null, { broadcast: true });  // nothing selected = match recap graphic
 });
+function openAbout() {
+  $("about-backdrop").hidden = false;
+  $("about-close").focus();
+}
+function closeAbout() {
+  $("about-backdrop").hidden = true;
+  $("btn-about").focus();
+}
+$("btn-about").addEventListener("click", openAbout);
+$("about-close").addEventListener("click", closeAbout);
+$("about-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeAbout(); });
 $("stage-close").addEventListener("click", closeStage);
 $("stage-backdrop").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeStage(); });
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !$("stage-backdrop").hidden) closeStage();
+  if (ev.key === "Escape" && !$("about-backdrop").hidden) closeAbout();
   // ← → move between moments, only when one is selected and nothing that uses the arrows has focus
   const typing = ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName);
   if ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && state.selected && !typing && $("stage-backdrop").hidden && !state.busy) {

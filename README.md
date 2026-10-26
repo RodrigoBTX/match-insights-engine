@@ -23,8 +23,7 @@ $env:DEMO_ONLY = "1"                                        # never contacts Azu
 .venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
 On macOS or Linux use `.venv/bin/python` instead of `.venv\Scripts\python`, and `export DEMO_ONLY=1`.
-Open http://127.0.0.1:8000. The header badge says **Recorded demo**. Tested on Windows 11 with Python 3.13; not
-tested on macOS or Linux.
+Open http://127.0.0.1:8000. The header badge says **Recorded demo**. Needs Python 3.10 or newer; tested on Windows 11 with Python 3.13, not on macOS or Linux. If port 8000 is busy, use another one with `--port 8001` and open that address.
 
 What to try:
 1. Click a marker on the **Momentum** timeline (G goal, R red card, C big chance, T tactical shift, ≈ chaotic spell).
@@ -75,30 +74,41 @@ Every layer exists because an earlier one failed in a test:
    the role is now a fact handed to the agents.
 5. **Wording checks the numbers cannot see.** A chaotic spell belongs to both teams, so a headline, graphic
    title or line that names only one is flagged ("Needs a check").
+6. **One automatic rewrite.** When a check flags the first draft, the Narrator rewrites it once with the exact
+   reason ("verify, then revise"). The better draft is kept, and the page says that a rewrite happened. A rewrite
+   costs a second pass, so it roughly doubles the time of the few explanations that need it (about 25 s instead of 10 s).
 
 ### Measured quality (first try, no retries)
 
-`python -m scripts.quality_report` runs 49 cases once each and counts the first result
-([report](docs/quality_report.md), [first run](docs/quality_report_run1.md)).
+`python -m scripts.quality_report [--seed N]` runs 49 cases once each (every moment in three audiences, Portuguese
+graphics, the recap and six players) and counts the first result. Every run is in `docs/`.
 
-| | Clean on the first try |
-|---|---|
-| First run | **84%** (41/49) |
-| After fixing what it found | **96%** (47/49) |
+| # | Match | System | Clean on the first draft | Clean after the automatic rewrite |
+|---|---|---|---|---|
+| 1 | seed 7 (the match used for tuning) | before any fix ([report](docs/quality_report_run1.md)) | 84% (41/49) | no rewrite existed |
+| 2 | seed 7 | after prompt fixes ([report](docs/quality_report_run2.md)) | 96% (47/49) | no rewrite existed |
+| 3 | seed 7 | + automatic rewrite ([report](docs/quality_report.md)) | 90% (44/49) | 96% (47/49) |
+| 4 | **seed 11, not used for tuning** ([report](docs/quality_report_seed11.md)) | same as 3 | 96% (47/49) | 100% (49/49) |
+| 5 | **seed 21, not used for tuning** ([report](docs/quality_report_seed21.md)) | final code | 98% (48/49) | 100% (49/49) |
 
-- **That is not an independent test:** the fixes were made after seeing the first run's failures, on the same 49
-  cases. And a different run can give a different result, because the model varies.
-- **The weak spot is still the chaotic spell: 2 of 4 cases failed**, with a headline naming only one team, even
-  after the rule was tightened. The check flags it ("Needs a check") instead of hiding it.
+How to read it, and what not to conclude:
+- **The same match gave 84%, 96% and 90% on the first draft** in runs 1 to 3: a difference of a few points between
+  runs is noise, so do not read 98% against 96% as an improvement.
+- Runs 1 and 2 were tuned on the same cases they measure, so they only show that the fixes worked. Seeds 11 and 21
+  are **partly** independent: they share the demo match's scripted story (same minutes), only the play and the
+  figures differ. Each is one run of 49 cases.
+- Run 5 includes two fixes made after run 4 (a retry when the model returns malformed JSON, which had crashed one
+  case in run 3, and a headline example for chaotic spells). Run 4 was not repeated.
+- **The chaotic spell is the hardest case.** Its first draft passed in 25%, 50%, 25% and 75% of cases in runs 1 to 4
+  (4 cases per run), and 4 of 4 on seed 21 after the headline example. Four cases cannot prove the example works.
 - A pass means *no detectable error*: no verifier flag, every figure traced, graphic present, no one-sided chaos
   wording, no wrong goal role. It does not mean the writing is good; titles can still be generic.
 - **Does the Verifier still catch errors?** `python -m scripts.verifier_probe` plants six errors in a correct text.
   It caught 15 of 18 over three rounds and listed no false alarm on the correct text (counted by keyword).
-- **Speed:** a new live explanation takes about 11 s (median; slowest 26 s). Recorded results and the selection
-  card are instant.
+- **Speed:** a new live explanation takes about 10 to 11 s (median; slowest 17 to 35 s across runs). Recorded
+  results and the selection card are instant.
 - The recordings in `demo/` are **the best of up to four attempts**, so they show the system at its best; the
   table above is the honest average.
-
 ## Run with the live agents
 
 ```powershell
