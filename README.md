@@ -35,6 +35,10 @@ What to try:
 
 ![Players and the control-vs-chaos strip](docs/img/player-spotlight.jpg)
 
+![Every player of both teams, in light mode](docs/img/all-players-light.jpg)
+
+![An explanation with its verification box, in light mode](docs/img/explanation-light.jpg)
+
 ## Microsoft technologies used
 
 - **Microsoft Foundry**: the model deployment (gpt-4.1-mini) and project endpoint used by every agent.
