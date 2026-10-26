@@ -390,7 +390,6 @@ def chaotic_spells(match: Match) -> list[dict]:
         elif run:
             spells.append((run[0]["start"], run[-1]["end"]))
             run = []
-    names = {"home": match.home.name, "away": match.away.name}
     out = []
     for start, end in spells:
         inside = window_stats(match, start, end)

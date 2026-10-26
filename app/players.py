@@ -229,7 +229,8 @@ def player_facts(match: Match, player_id: int) -> dict | None:
         "team_totals": totals,
         "share_of_team_pct": share,
         "match_score": (
-            f"{match.home.name} {final_score['home']}-{final_score['away']} {match.away.name}"
+            f"{match.home.name} {final_score['home']}-{final_score['away']} "
+            f"{match.away.name}"
         ),
         "players_ranked_overall": len(ranked),
         "impact_formula": (

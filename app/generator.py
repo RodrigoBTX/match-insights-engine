@@ -269,6 +269,7 @@ class Gen:
     def _mirror_local(
         self, shooter_side: str, lx: float, ly: float
     ) -> tuple[float, float]:
+        del shooter_side, lx, ly  # Unused: the keeper's position is fixed.
         # keeper stands on the opposite local goal line; stored via the keeper's
         # own local coords
         return 4.0, PITCH_H / 2 + self.r.uniform(-3, 3)
@@ -397,7 +398,7 @@ class Gen:
             t, "away", "interception", d, 28, 36, outcome="won"
         )  # local coords for away
         path = [(30, 36), (52, 22), (74, 40), (88, 34)]
-        t2, holder = self.build_up(t + 1.2, "away", path, fast=True)
+        t2, _ = self.build_up(t + 1.2, "away", path, fast=True)
         striker = self.pick("away", ("ST", "LW", "RW"))
         self.shot(t2, "away", striker, 90, 35, "goal", xg=0.42, speed=96.0)
         return t2 + 30
@@ -443,7 +444,7 @@ class Gen:
         d = self.pick("home", ("CM",))
         self.add(t, "home", "tackle", d, 74, 30, outcome="won")
         path = [(74, 30)]
-        for i in range(14):
+        for _ in range(14):
             px, py = path[-1]
             path.append(
                 (
@@ -451,7 +452,7 @@ class Gen:
                     max(8, min(60, py + self.r.gauss(0, 9))),
                 )
             )
-        t, holder = self.build_up(t + 1, "home", path, step=(2.0, 3.8))
+        t, _ = self.build_up(t + 1, "home", path, step=(2.0, 3.8))
         self.shot(
             t,
             "home",

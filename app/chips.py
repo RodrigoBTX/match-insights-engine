@@ -157,42 +157,50 @@ def chip(label: str, value: str, detail: str = "") -> dict:
     return {"label": label, "value": value, "detail": detail}
 
 
-def _recap(match: Match, L: dict) -> list[dict]:
+def _recap(match: Match, labels: dict) -> list[dict]:
     s = an.match_summary(match)
     h, a = match.home.short, match.away.short
     both = f"{h} – {a}"
     return [
         chip(
-            L["possession"],
+            labels["possession"],
             f"{pct(s['possession_pct']['home'])} – "
             f"{pct(s['possession_pct']['away'])}",
             both,
         ),
-        chip(L["shots"], f"{s['shots']['home']} – {s['shots']['away']}", both),
-        chip(L["xg"], f"{s['xg']['home']:.2f} – {s['xg']['away']:.2f}", both),
+        chip(
+            labels["shots"],
+            f"{s['shots']['home']} – {s['shots']['away']}",
+            both,
+        ),
+        chip(
+            labels["xg"], f"{s['xg']['home']:.2f} – {s['xg']['away']:.2f}", both
+        ),
     ]
 
 
-def _shot_chips(match: Match, f: dict, L: dict, third: str) -> list[dict]:
+def _shot_chips(match: Match, f: dict, labels: dict, third: str) -> list[dict]:
     """Shared by goals and big chances: shot quality, shot speed (or possession
     when the feed has none)."""
     side, short = f["side"], match.team(f["side"]).short
     recent = f["last_10_min_before_moment"]
     chips = [
         chip(
-            L["xg"],
+            labels["xg"],
             f"{f['xg']:.2f}" if f.get("xg") is not None else "–",
             f.get("player") or short,
         )
     ]
     if f.get("shot_speed_kmh"):
         chips.append(
-            chip(L["shot_speed"], f"{f['shot_speed_kmh']:.0f} km/h", short)
+            chip(labels["shot_speed"], f"{f['shot_speed_kmh']:.0f} km/h", short)
         )
     else:
         chips.append(
             chip(
-                L["possession_prev"], pct(recent["possession_pct"][side]), short
+                labels["possession_prev"],
+                pct(recent["possession_pct"][side]),
+                short,
             )
         )
     if (
@@ -204,20 +212,22 @@ def _shot_chips(match: Match, f: dict, L: dict, third: str) -> list[dict]:
             f["win_probability_before"][side],
             f["win_probability_after"][side],
         )
-        chips.append(chip(L["win_prob"], arrow(frac(b), frac(a)), short))
+        chips.append(chip(labels["win_prob"], arrow(frac(b), frac(a)), short))
     else:
-        chips.append(chip(L["shots_prev"], str(recent["shots"][side]), short))
+        chips.append(
+            chip(labels["shots_prev"], str(recent["shots"][side]), short)
+        )
     return chips
 
 
-def _red_card(match: Match, f: dict, L: dict) -> list[dict]:
+def _red_card(match: Match, f: dict, labels: dict) -> list[dict]:
     h, a = match.home.short, match.away.short
     chips = []
     if f.get("win_probability_before") and f.get("win_probability_after"):
         for side, short in (("home", h), ("away", a)):
             chips.append(
                 chip(
-                    L["win_prob"],
+                    labels["win_prob"],
                     arrow(
                         frac(f["win_probability_before"][side]),
                         frac(f["win_probability_after"][side]),
@@ -227,7 +237,7 @@ def _red_card(match: Match, f: dict, L: dict) -> list[dict]:
             )
     chips.append(
         chip(
-            L["red_cards"],
+            labels["red_cards"],
             str(f["red_cards_so_far"][f["side"]]),
             match.team(f["side"]).short,
         )
@@ -235,12 +245,12 @@ def _red_card(match: Match, f: dict, L: dict) -> list[dict]:
     return chips
 
 
-def _shift(match: Match, f: dict, L: dict) -> list[dict]:
+def _shift(match: Match, f: dict, labels: dict) -> list[dict]:
     side, short = f["side"], match.team(f["side"]).short
     b, a = f["window_before_10_min"], f["window_after_10_min"]
     chips = [
         chip(
-            L["territory"],
+            labels["territory"],
             arrow(
                 pct(b["field_tilt_pct"][side]), pct(a["field_tilt_pct"][side])
             ),
@@ -249,10 +259,12 @@ def _shift(match: Match, f: dict, L: dict) -> list[dict]:
     ]
     pb, pa = b["press_height_m"][side], a["press_height_m"][side]
     if pb is not None and pa is not None:
-        chips.append(chip(L["press_height"], f"{pb:.0f} → {pa:.0f} m", short))
+        chips.append(
+            chip(labels["press_height"], f"{pb:.0f} → {pa:.0f} m", short)
+        )
     chips.append(
         chip(
-            L["possession"],
+            labels["possession"],
             arrow(
                 pct(b["possession_pct"][side]), pct(a["possession_pct"][side])
             ),
@@ -262,19 +274,19 @@ def _shift(match: Match, f: dict, L: dict) -> list[dict]:
     return chips
 
 
-def _chaos(match: Match, f: dict, L: dict) -> list[dict]:
+def _chaos(match: Match, f: dict, labels: dict) -> list[dict]:
     both = f"{match.home.short} + {match.away.short}"
     b, d = f["ten_minutes_before_spell"], f["during_spell"]
     return [
         chip(
-            L["possession_changes"],
+            labels["possession_changes"],
             arrow(
                 f"{b['sequences_per_min']:.1f}", f"{d['sequences_per_min']:.1f}"
             ),
             both,
         ),
         chip(
-            L["passes_per_sequence"],
+            labels["passes_per_sequence"],
             arrow(
                 f"{b['avg_passes_per_sequence']:.1f}",
                 f"{d['avg_passes_per_sequence']:.1f}",
@@ -282,7 +294,7 @@ def _chaos(match: Match, f: dict, L: dict) -> list[dict]:
             both,
         ),
         chip(
-            L["turnovers"],
+            labels["turnovers"],
             arrow(
                 f"{b['turnovers_per_min']:.1f}", f"{d['turnovers_per_min']:.1f}"
             ),
@@ -300,7 +312,7 @@ def _is_keeper(p: dict) -> bool:
     )
 
 
-def _player(f: dict, L: dict) -> list[dict]:
+def _player(f: dict, labels: dict) -> list[dict]:
     """Cards depend on the role: a keeper is described by saves, an outfielder
     by what he actually did."""
     p, share = f["player"], f["share_of_team_pct"]
@@ -308,17 +320,17 @@ def _player(f: dict, L: dict) -> list[dict]:
     rank = f"#{p['rank_in_team']} {team}"
     if _is_keeper(p):
         return [
-            chip(L["saves"], str(p["saves"]), team),
-            chip(L["impact"], f"{p['impact']:.1f}", rank),
+            chip(labels["saves"], str(p["saves"]), team),
+            chip(labels["impact"], f"{p['impact']:.1f}", rank),
         ]
     cards = [
         chip(
-            L["chances_created"],
+            labels["chances_created"],
             str(p["chances_created"]),
             f"{team} {share['chances_created']}%",
         ),
         chip(
-            L["progressive_passes"],
+            labels["progressive_passes"],
             str(p["progressive_passes"]),
             f"{team} {share['progressive_passes']}%",
         ),
@@ -327,18 +339,22 @@ def _player(f: dict, L: dict) -> list[dict]:
     # otherwise his impact score
     if p["goals"] > 0:
         cards.append(
-            chip(L["goals"], str(p["goals"]), f"{L['xg']} {p['xg']:.2f}")
+            chip(
+                labels["goals"],
+                str(p["goals"]),
+                f"{labels['xg']} {p['xg']:.2f}",
+            )
         )
     elif p["ball_wins"] >= 3:
         cards.append(
             chip(
-                L["ball_wins"],
+                labels["ball_wins"],
                 str(p["ball_wins"]),
                 f"{team} {share['ball_wins']}%",
             )
         )
     else:
-        cards.append(chip(L["impact"], f"{p['impact']:.1f}", rank))
+        cards.append(chip(labels["impact"], f"{p['impact']:.1f}", rank))
     return cards
 
 
@@ -347,27 +363,27 @@ def _build_chips(
 ) -> list[dict]:
     """Three key figures for the current selection, with team names and both
     sides of a comparison."""
-    L = LABELS.get(language, LABELS["en"])
+    labels = LABELS.get(language, LABELS["en"])
     try:
         if player is not None:
             player = {
                 **player,
                 "team_short": match.team(player["player"]["side"]).short,
             }
-            return _player(player, L)
+            return _player(player, labels)
         if moment is None:
-            return _recap(match, L)
+            return _recap(match, labels)
         f, kind = moment["facts"], moment["type"]
         if kind == "goal":
-            return _shot_chips(match, f, L, "win_prob")
+            return _shot_chips(match, f, labels, "win_prob")
         if kind == "big_chance":
-            return _shot_chips(match, f, L, "shots_prev")
+            return _shot_chips(match, f, labels, "shots_prev")
         if kind == "red_card":
-            return _red_card(match, f, L)
+            return _red_card(match, f, labels)
         if kind == "tactical_shift":
-            return _shift(match, f, L)
+            return _shift(match, f, labels)
         if kind == "chaotic_spell":
-            return _chaos(match, f, L)
+            return _chaos(match, f, labels)
     except (
         KeyError,
         TypeError,
@@ -381,8 +397,8 @@ def build_chips(
 ) -> list[dict]:
     """The cards, each with a language-neutral `key` so the UI can attach the
     same explanation in every language."""
-    L = LABELS.get(language, LABELS["en"])
-    key_of = {label: key for key, label in L.items()}
+    labels = LABELS.get(language, LABELS["en"])
+    key_of = {label: key for key, label in labels.items()}
     return [
         {**c, "key": key_of.get(c["label"])}
         for c in _build_chips(match, moment, player, language)

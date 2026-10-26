@@ -347,9 +347,9 @@ def from_opta_f24(xml: bytes | str, match_id: str = "opta-match") -> Match:
         elif tid == OPTA_CARD:
             kind = next(
                 (
-                    OPTA_CARD_QUALIFIERS[k]
-                    for k in OPTA_CARD_QUALIFIERS
-                    if k in q
+                    card
+                    for key, card in OPTA_CARD_QUALIFIERS.items()
+                    if key in q
                 ),
                 None,
             )

@@ -61,7 +61,7 @@ _client: FoundryChatClient | None = None
 
 
 def client() -> FoundryChatClient:
-    global _client
+    global _client  # pylint: disable=global-statement  # lazy singleton
     if _client is None:
         # `az` is a slow subprocess on Windows; the default 10 s limit failed
         # once on a cold first call
@@ -72,7 +72,7 @@ def client() -> FoundryChatClient:
 
 
 def reset_client() -> None:
-    global _client
+    global _client  # pylint: disable=global-statement  # lazy singleton
     _client = None
 
 

@@ -33,7 +33,13 @@ disable=
     import-error,
     broad-exception-caught,
     logging-fstring-interpolation,
-    unnecessary-lambda-assignment
+    unnecessary-lambda-assignment,
+    # agent_framework exports Agent and tool lazily, which pylint cannot see.
+    no-name-in-module,
+    # `a < b and c == b` reads better than a chained comparison here.
+    chained-comparison,
+    # dict(key=value) is used for readability in the event generator.
+    use-dict-literal
 
 [DESIGN]
 max-returns=10
