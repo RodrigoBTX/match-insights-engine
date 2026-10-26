@@ -215,6 +215,12 @@ def player_facts(match: Match, player_id: int) -> dict | None:
             "ball_wins",
         )
     }
+    final_score = {
+        side: sum(
+            1 for e in match.events if e.type == "goal" and e.side == side
+        )
+        for side in ("home", "away")
+    }
     return {
         "teams": {"home": match.home.name, "away": match.away.name},
         "player": me,
@@ -223,8 +229,7 @@ def player_facts(match: Match, player_id: int) -> dict | None:
         "team_totals": totals,
         "share_of_team_pct": share,
         "match_score": (
-            f"{match.home.name} {sum(1 for e in match.events if e.type == 'goal' and e.side == 'home')}"
-            f"-{sum(1 for e in match.events if e.type == 'goal' and e.side == 'away')} {match.away.name}"
+            f"{match.home.name} {final_score['home']}-{final_score['away']} {match.away.name}"
         ),
         "players_ranked_overall": len(ranked),
         "impact_formula": (

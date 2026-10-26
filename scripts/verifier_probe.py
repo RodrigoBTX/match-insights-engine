@@ -35,15 +35,18 @@ def build_texts(facts: dict) -> tuple[dict, dict, dict[str, tuple[str, ...]]]:
     correct = {
         "headline": f"{player} scores for {team}",
         "explanation": (
-            f"At {facts['minute']}, {player} scored for {team} with an xG of {facts['xg']:.2f}. "
-            f"{team}'s win probability moved from {wp_b * 100:.1f}% to {wp_a * 100:.1f}%."
+            f"At {facts['minute']}, {player} scored for {team} with an xG of "
+            f"{facts['xg']:.2f}. "
+            f"{team}'s win probability moved from {wp_b * 100:.1f}% to "
+            f"{wp_a * 100:.1f}%."
         ),
         "tactical_takeaway": "The goal changed the shape of the game.",
     }
     planted = {
         "headline": f"Marek Sobol scores for {team}",
         "explanation": (
-            f"At 31'05, Marek Sobol scored for {team} with an xG of 0.85 after 11 passes. "
+            f"At 31'05, Marek Sobol scored for {team} with an xG of 0.85 after "
+            "11 passes. "
             f"{team}'s win probability rose from {wp_b * 100:.1f}% to 91.0%. "
             "The opposition had a player sent off just before."
         ),
@@ -84,16 +87,21 @@ async def main() -> int:
             for name, keys in markers.items()
         }
         caught = sum(found.values())
+        missed = (
+            ", ".join(n for n, ok in found.items() if not ok) or "none missed"
+        )
         caught_total += caught
         false_total += len(control.get("issues") or [])
         print(
             f"round {i}: planted errors caught {caught}/{len(markers)} "
-            f"({', '.join(n for n, ok in found.items() if not ok) or 'none missed'} missed) | "
-            f"correct text: verdict={control.get('verdict')}, issues listed={len(control.get('issues') or [])}",
+            f"({missed} missed) | "
+            f"correct text: verdict={control.get('verdict')}, issues "
+            f"listed={len(control.get('issues') or [])}",
             flush=True,
         )
     print(
-        f"\nTotal: {caught_total}/{ROUNDS * len(markers)} planted errors caught; "
+        f"\nTotal: {caught_total}/{ROUNDS * len(markers)} planted errors "
+        "caught; "
         f"{false_total} issues listed on the correct text over {ROUNDS} rounds."
     )
     return 0

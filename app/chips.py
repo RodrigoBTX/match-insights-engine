@@ -164,7 +164,8 @@ def _recap(match: Match, L: dict) -> list[dict]:
     return [
         chip(
             L["possession"],
-            f"{pct(s['possession_pct']['home'])} – {pct(s['possession_pct']['away'])}",
+            f"{pct(s['possession_pct']['home'])} – "
+            f"{pct(s['possession_pct']['away'])}",
             both,
         ),
         chip(L["shots"], f"{s['shots']['home']} – {s['shots']['away']}", both),

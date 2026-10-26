@@ -241,6 +241,11 @@ def pct(n: int, d: int) -> str:
     return f"{100 * n / d:.0f}% ({n}/{d})" if d else "n/a"
 
 
+def first_try_clean(records: list[dict]) -> int:
+    """Number of records whose first draft passed every check."""
+    return sum(1 for r in records if r.get("raw_clean", not r["reasons"]))
+
+
 def category(reason: str) -> str:
     for key in (
         "pipeline error",
@@ -266,7 +271,10 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
     kept_first = sum(1 for r in revised if r.get("revision_kept") == "first")
     revision_errors = sum(1 for r in revised if r.get("revision_error"))
     if seed == 7:
-        match_line = "the synthetic demo match (seed 7), the one used while tuning the prompts and rules"
+        match_line = (
+            "the synthetic demo match (seed 7), the one used while tuning the "
+            "prompts and rules"
+        )
         heldout = []
     else:
         match_line = f"a different synthetic match (seed {seed})"
@@ -282,7 +290,8 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
     lines = [
         "# Quality report: first-try results",
         "",
-        f"Generated {date.today().isoformat()} with `{model}`. Command: `python -m scripts.quality_report`.",
+        f"Generated {date.today().isoformat()} with `{model}`. "
+        "Command: `python -m scripts.quality_report`.",
         "",
         "Every case ran **once**; the first result counts (no retries on "
         "quality, unlike the recordings in `demo/`, "
@@ -302,9 +311,12 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
         "## Result",
         "",
         f"- Cases: **{n}** (match: {match_line})",
-        f"- Clean on the **first draft** (nothing flagged, no revision needed): **{pct(len(raw_ok), n)}**",
-        f"- Clean **after the automatic revision**, which is what the user sees: **{pct(len(ok), n)}**",
-        f"- Revisions triggered: {len(revised)}; the revised draft was kept in {kept_revised}, the first draft in "
+        "- Clean on the **first draft** (nothing flagged, no revision needed): "
+        f"**{pct(len(raw_ok), n)}**",
+        "- Clean **after the automatic revision**, which is what the user "
+        f"sees: **{pct(len(ok), n)}**",
+        f"- Revisions triggered: {len(revised)}; the revised draft was kept in "
+        f"{kept_revised}, the first draft in "
         f"{kept_first} (revision errors: {revision_errors}).",
         "",
     ]
@@ -338,7 +350,7 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
             "|---|---|---|",
         ]
         lines += [
-            f"| {g} | {pct(sum(1 for r in rs if r.get('raw_clean', not r['reasons'])), len(rs))} | "
+            f"| {g} | {pct(first_try_clean(rs), len(rs))} | "
             f"{pct(sum(1 for r in rs if not r['reasons']), len(rs))} |"
             for g, rs in sorted(groups.items())
         ]
@@ -357,7 +369,8 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
             "## Speed (live agents)",
             "",
             f"- Per explanation: median {statistics.median(times):.1f} s, "
-            f"slowest {max(times):.1f} s ({len(times)} runs, {CONCURRENCY} in parallel)",
+            f"slowest {max(times):.1f} s ({len(times)} runs, {CONCURRENCY} in "
+            "parallel)",
             "- Mean per agent: "
             + ", ".join(
                 f"{a} {statistics.mean(s):.1f} s" for a, s in per_agent.items()
@@ -374,7 +387,8 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
         for r in revised:
             outcome = "fixed" if not r["reasons"] else "still flagged"
             lines.append(
-                f"- **{r['label']}** ({outcome}; kept the {r.get('revision_kept', '?')} draft)"
+                f"- **{r['label']}** ({outcome}; kept the "
+                f"{r.get('revision_kept', '?')} draft)"
             )
             lines += [
                 f"  - flagged: {x[:200]}"
@@ -395,7 +409,8 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
     retried = sum(r["retries"] for r in records)
     lines += [
         "",
-        f"Infrastructure retries (rate limit and similar, not counted as quality): {retried}.",
+        "Infrastructure retries (rate limit and similar, not counted as "
+        f"quality): {retried}.",
         "",
         "## Limits of this measurement",
         "",
@@ -434,7 +449,8 @@ async def main() -> int:
             MATCHES[demo.DEMO_MATCH_ID],
             MOMENTS[demo.DEMO_MATCH_ID],
         )
-    # a match nothing was tuned on; moments are detected the same way the app does it
+    # a match nothing was tuned on; moments are detected the same way the app
+    # does it
     else:
         match = generate_match(args.seed)
         moments = an.detect_moments(match)
@@ -453,7 +469,9 @@ async def main() -> int:
         done += 1
         records.append(rec)
         print(
-            f"[{done}/{len(targets)}] {'ok ' if not rec['reasons'] else 'FAIL'} {rec['seconds']:>5}s  {rec['label']}"
+            f"[{done}/{len(targets)}] "
+            f"{'ok ' if not rec['reasons'] else 'FAIL'} "
+            f"{rec['seconds']:>5}s  {rec['label']}"
             + (
                 ""
                 if not rec["reasons"]
@@ -481,7 +499,8 @@ async def main() -> int:
     ok = sum(1 for r in records if not r["reasons"])
     raw = sum(1 for r in records if r.get("raw_clean"))
     print(
-        f"\nClean on the first draft: {pct(raw, len(records))} | after revision: {pct(ok, len(records))}. Report: {out}"
+        f"\nClean on the first draft: {pct(raw, len(records))} | after "
+        f"revision: {pct(ok, len(records))}. Report: {out}"
     )
     return 0
 

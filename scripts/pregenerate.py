@@ -74,7 +74,8 @@ async def main() -> int:
     if old_fp != fp:
         if entries:
             print(
-                f"Existing recordings belong to a different match ({old_fp} != {fp}); starting over."
+                f"Existing recordings belong to a different match ({old_fp} != "
+                f"{fp}); starting over."
             )
         entries = {}
 
@@ -92,7 +93,8 @@ async def main() -> int:
     if args.limit:
         todo = todo[: args.limit]
     print(
-        f"{len(todo)} to record, {len(entries)} already recorded. Fingerprint {fp}.",
+        f"{len(todo)} to record, {len(entries)} already recorded. Fingerprint "
+        f"{fp}.",
         flush=True,
     )
 
@@ -112,7 +114,8 @@ async def main() -> int:
                     )
                 except Exception as exc:
                     print(
-                        f"  ! {key[1:]} attempt {attempt} failed: {str(exc)[:140]}",
+                        f"  ! {key[1:]} attempt {attempt} failed: "
+                        f"{str(exc)[:140]}",
                         flush=True,
                     )
                     limited = "rate limit" in str(exc).lower()
@@ -130,7 +133,9 @@ async def main() -> int:
             entries[key] = result
             demo.save(entries, fp)
             print(
-                f"[{done}/{len(todo)}] {'clean' if demo.is_clean(result, aud) else 'NOT CLEAN'} {key[1:]}",
+                f"[{done}/{len(todo)}] "
+                f"{'clean' if demo.is_clean(result, aud) else 'NOT CLEAN'} "
+                f"{key[1:]}",
                 flush=True,
             )
 

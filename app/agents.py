@@ -39,7 +39,8 @@ AUDIENCES = {
         "context"
     ),
     "coach": (
-        "a coach: tactical detail, pressing/transition/shape language, concrete "
+        "a coach: tactical detail, pressing/transition/shape language, "
+        "concrete "
         "numbers, what to change"
     ),
     "broadcaster": (
@@ -114,8 +115,10 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
 
     @tool(
         name="window_stats",
-        description="Possession, shots, xG, final-third passes, field tilt, press height "
-        "(metres from own goal where the ball is won), sequences per minute and "
+        description="Possession, shots, xG, final-third passes, field tilt, "
+        "press height "
+        "(metres from own goal where the ball is won), sequences per minute "
+        "and "
         "passes per sequence between "
         "two match minutes. Keys are 'home' and 'away'. Use it to compare "
         "phases of the game.",
@@ -144,7 +147,8 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
 
     @tool(
         name="score_and_win_probability",
-        description="Score and Poisson win probability at a given match minute.",
+        description="Score and Poisson win probability at a given "
+        "match minute.",
     )
     def score_and_win_probability(minute: float) -> str:
         log("score_and_win_probability", {"minute": minute})
@@ -174,7 +178,8 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
 
     @tool(
         name="player_stats",
-        description="Full statistics and impact score of one player by id: passes, "
+        description="Full statistics and impact score of one player by id: "
+        "passes, "
         "progressive passes, average pass quality (0-1), chances created, "
         "shots, xG, goals, top shot speed, "
         "tackles, interceptions, saves, cards, and overall/in-team rank.",
@@ -188,7 +193,8 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
 
     @tool(
         name="top_players",
-        description="The n highest-impact players of a side ('home' or 'away'), "
+        description="The n highest-impact players of a side "
+        "('home' or 'away'), "
         "with their key numbers, to compare a player with teammates or "
         "opponents.",
     )
@@ -230,12 +236,14 @@ CHAOS_RULE = (
 
 GRAPHIC_RULE = (
     ' The audience is a broadcaster, so ALSO include a key "graphic" for an '
-    'on-screen lower third: '
+    "on-screen lower third: "
     '{"title": "max 6 words", "line": "one on-air sentence of max 20 words"}. '
-    'Do not write stat cards: the three '
-    "figures shown beside the text are computed from the data. Use only figures "
+    "Do not write stat cards: the three "
+    "figures shown beside the text are computed from the data. Use only "
+    "figures "
     "that appear in the conversation. "
-    'The title must state the news itself (who did what), never a generic label '
+    "The title must state the news itself (who did what), never a generic "
+    "label "
     'such as "Key Match Stats", "Moment '
     'That Mattered" or "Match Summary". ' + CHAOS_RULE
 )
@@ -243,7 +251,8 @@ GRAPHIC_RULE = (
 LOCALISER_GRAPHIC = (
     ' Your JSON MUST also contain the key "graphic": {"title": "...", "line": '
     '"..."}, copied from the "graphic" '
-    "object in the Narrator JSON and translated, with exactly the same figures. "
+    "object in the Narrator JSON and translated, with exactly the same "
+    "figures. "
     "Never omit it."
 )
 
@@ -255,7 +264,8 @@ GOAL_RULE = (
 )
 
 NAMING = (
-    "Always name teams and players (facts.teams maps the home/away keys to team "
+    "Always name teams and players (facts.teams maps the home/away keys to "
+    "team "
     "names); never write 'home' "
     "or 'away' as if it were a name. "
 )
@@ -272,7 +282,8 @@ ANALYST_PROMPT = (
     "with at most 5 stat_chips. Copy numbers exactly from the facts or tool "
     "results; never invent numbers. "
     + NAMING
-    + "last_10_min_before_moment covers the 10 minutes before the moment and excludes the moment itself. "
+    + "last_10_min_before_moment covers the 10 minutes before the moment "
+    "and excludes the moment itself. "
     "Say what the data explains: why this moment mattered (score, win "
     "probability), whether it went with or "
     "against the run of play, and what changed tactically. "
@@ -282,11 +293,14 @@ ANALYST_PROMPT = (
     "goal where the ball is won) and "
     "likely_trigger; for 'chaotic_spell' explain the loss of control by BOTH "
     "teams: more sequences per minute, "
-    "fewer passes per sequence and more turnovers than ten_minutes_before_spell "
+    "fewer passes per sequence and more turnovers than "
+    "ten_minutes_before_spell "
     "and the rest of the match. A "
-    "chaotic spell is not one team imposing itself: never say a team raised its "
+    "chaotic spell is not one team imposing itself: never say a team raised "
+    "its "
     "pressure or possession unless "
-    "ten_minutes_before_spell and during_spell show that rise. Report only what "
+    "ten_minutes_before_spell and during_spell show that rise. Report only "
+    "what "
     "the numbers show; do not claim a "
     "cause that is not in likely_trigger. Ignore the delivery request; it is "
     "for the Localiser."
@@ -323,10 +337,12 @@ PLAYER_ANALYST_PROMPT = (
     "with at most 5 stat_chips. Copy numbers exactly from the facts or tool "
     "results; never invent numbers. "
     + NAMING
-    + "Do not do arithmetic: use ready-made fields such as ball_wins and share_of_team_pct instead of adding or "
+    + "Do not do arithmetic: use ready-made fields such as ball_wins and "
+    "share_of_team_pct instead of adding or "
     "dividing numbers yourself. "
     + GOAL_RULE
-    + "Cover what the player did (creating chances, progressing the ball, finishing, winning the ball), how "
+    + "Cover what the player did (creating chances, progressing the ball, "
+    "finishing, winning the ball), how "
     "they rank in their team and in the match, and how much of the team's "
     "output they account for. Impact is "
     "a formula-based score (impact_formula in the facts), not a rating from a "
@@ -342,11 +358,9 @@ PLAYER_NARRATOR_PROMPT = (
     '{"headline": "max 12 words", "explanation": "2-4 sentences", '
     '"tactical_takeaway": "1 sentence on how '
     'the team used or could use this player"}. Do not add numbers or claims '
-    'that are not in the conversation. '
+    "that are not in the conversation. "
     "A rank or a comparison (more than, fewer than) needs both values in the "
-    "conversation. "
-    + GOAL_RULE
-    + "Ignore the delivery request."
+    "conversation. " + GOAL_RULE + "Ignore the delivery request."
 )
 VERIFIER_PROMPT = (
     "You are the Verifier agent, the hallucination guard. Check the Narrator's "
@@ -361,19 +375,20 @@ VERIFIER_PROMPT = (
     "opener, the equaliser, "
     "go-ahead or match-winning is supported only if it matches goal_role or "
     "goals[].role in the facts; if the "
-    'text gives a goal a role that differs from it, that is an issue. If the '
+    "text gives a goal a role that differs from it, that is an issue. If the "
     'Narrator JSON has a "graphic" '
     "object, check its title and line exactly like the rest (the figure cards "
     "beside it are computed from the "
     "data; they are not yours to check). Reply with ONLY a JSON object: "
-    '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": '
+    '{"verdict": "verified" or "issues", "claims_checked": <integer>, '
+    '"issues": '
     '["short description of each '
     'UNSUPPORTED claim"]}. "issues" must contain ONLY claims that are not '
-    'supported or are contradicted. Never '
+    "supported or are contradicted. Never "
     'list a claim that is fine, never write "no issue" or "matches the facts" '
-    'in it, and never list comments or '
+    "in it, and never list comments or "
     'structural remarks. If everything is supported, return verdict "verified" '
-    'and an empty list. '
+    "and an empty list. "
     "Be strict but do not flag harmless paraphrase."
 )
 LOCALISER_PROMPT = (
@@ -386,8 +401,8 @@ LOCALISER_PROMPT = (
     '{"headline": "...", "explanation": "...", "tactical_takeaway": "...", '
     '"stat_chips": [{"label": "...", '
     '"value": "..."}]}. If the Analyst produced stat_chips, translate their '
-    'labels and keep their values; '
-    'otherwise return an empty stat_chips list. If the Narrator JSON has a '
+    "labels and keep their values; "
+    "otherwise return an empty stat_chips list. If the Narrator JSON has a "
     '"graphic" object, include it too, '
     "translated, with the same keys and unchanged figures (title, line, "
     "chips[].label, chips[].value)."
@@ -463,10 +478,15 @@ def narrated_text(final: dict) -> str:
 
 
 def _delivery(audience: str, language: str) -> str:
-    return f"Delivery request (for the Localiser): audience = {AUDIENCES[audience]}; language = {LANGUAGES[language]}."
+    return (
+        "Delivery request (for the Localiser): "
+        f"audience = {AUDIENCES[audience]}; "
+        f"language = {LANGUAGES[language]}."
+    )
 
 
-# one revision at most: it costs a full second pass, so it must stay the exception
+# one revision at most: it costs a full second pass, so it must stay the
+# exception
 MAX_REVISIONS = 1
 
 # A line that ends by saying there is no issue is a comment on a supported
@@ -485,8 +505,11 @@ def moment_guidance(match: Match, moment: dict | None) -> str:
         "-", " and "
     )
     return (
-        f"\n\nHeadline guidance: this is a loss of control by BOTH teams, so the headline and the graphic title must "
-        f'name {match.home.name} and {match.away.name}, or neither of them. For example: "Both teams lose control '
+        "\n\nHeadline guidance: this is a loss of control by BOTH teams, so "
+        "the headline and the graphic title must "
+        f"name {match.home.name} and {match.away.name}, or neither of "
+        "them. For "
+        'example: "Both teams lose control '
         f'between minutes {minutes}".'
     )
 
@@ -522,7 +545,8 @@ def revision_request(problems: list[str]) -> str:
         "\n\nREVISION REQUEST. A previous draft of this explanation was "
         "rejected by the automatic checks:\n"
         + "\n".join(f"- {p}" for p in problems)
-        + "\nWrite a corrected version. Fix exactly these points, use only figures from the facts and tool "
+        + "\nWrite a corrected version. Fix exactly these points, use only "
+        "figures from the facts and tool "
         "results, and keep the same JSON format."
     )
 
@@ -556,7 +580,8 @@ async def run_pipeline(
             break
         except (
             ValueError
-        # json.JSONDecodeError: the model returned malformed JSON; one more attempt, then fail
+            # json.JSONDecodeError: the model returned malformed JSON; one more
+            # attempt, then fail
         ):
             if attempt == 2:
                 raise

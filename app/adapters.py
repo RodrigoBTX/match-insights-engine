@@ -175,7 +175,7 @@ def from_statsbomb(raw: list[dict], match_id: str = "real-match") -> Match:
     )
 
 
-# ---------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Opta F24 (XML) adapter
 #
 # Verified against the open-source `socceraction` parser: Game/Event/Q
@@ -191,7 +191,7 @@ def from_statsbomb(raw: list[dict], match_id: str = "real-match") -> Match:
 # fixture. F24 has no player names and, as far as I could confirm, no xG, so ids
 # stand in for names and
 # xG comes from this project's distance/angle model.
-# ---------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 (
     OPTA_PASS,
     OPTA_OFFSIDE_PASS,

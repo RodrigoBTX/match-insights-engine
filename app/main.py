@@ -214,7 +214,8 @@ async def upload(file: UploadFile) -> dict:
             why = str(exc) or "unexpected content"
         raise HTTPException(
             422,
-            f"This file could not be read as an Opta F24 or StatsBomb event feed: {why}.",
+            "This file could not be read as an Opta F24 or StatsBomb event "
+            f"feed: {why}.",
         ) from exc
     return payload(register(match))
 
@@ -338,9 +339,13 @@ def unavailable_message(key: tuple, reason: str) -> str:
     scope = (
         "Recordings cover the original synthetic match only."
         if key[0] != demo.DEMO_MATCH_ID
-        else "Recordings cover every moment, the match recap and the six highest-impact players of each team."
+        else "Recordings cover every moment, the match recap and the six "
+        "highest-impact players of each team."
     )
-    return f"Live agents are unavailable ({reason}) and this selection was not recorded. {scope}"
+    return (
+        f"Live agents are unavailable ({reason}) and this selection was not "
+        f"recorded. {scope}"
+    )
 
 
 @app.post("/api/explain")
