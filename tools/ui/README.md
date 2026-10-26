@@ -15,9 +15,11 @@ and the app running on `http://127.0.0.1:8000`. For results that do not depend o
 | `ui_select.mjs` | Selection card, previous/next, arrow keys, clickable control cells, players, timing, panel scrolling | `<outDir>` |
 | `ui_about.mjs` | The "How it works" panel, the try-this suggestions, and how an automatic revision is shown (simulated result) | `<outDir>` |
 | `ui_theme.mjs` | Light and dark theme: WCAG contrast of every visible text (page, selection, result, About), toggle label, persistence after reload, all players listed | `<outDir>` |
+| `ui_narrow.mjs` | Phone (390 px) and tablet (820 px) widths: horizontal overflow, small tap targets, screenshots in both themes and of the broadcast view | `<outDir>` |
+| `ui_shots.mjs` | The README/submission screenshots (selection card, explanation, all players; dark and light) | `<outDir>` |
 | `ui_demo.mjs` | The walk of someone without Azure: badge, recorded result, language fallback, player, broadcast, new match | `<outDir>` |
 | `ui_broadcast.mjs` | Opens the broadcast view for one target and captures it | `<outDir> <moment text or player:Name or recap> [language] [file.png]` |
-| `ui_upload.mjs` | Loads real-feed fixtures through the page's file input | `<outDir> <file1> [file2 ...]` |
+| `ui_upload.mjs` | Loads real-feed fixtures through the page's file input | `<outDir> <absolute path 1> [path 2 ...]` (relative paths fail inside Edge) |
 | `ui_test.mjs` | The explain flow for a moment or a player with live agents | `<outDir> <moment text or player:Name> [audience] [language]` |
 
 Notes learned the hard way:

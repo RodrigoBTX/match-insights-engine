@@ -27,6 +27,7 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 # DEMO_ONLY=1 never contacts Azure: only recorded explanations are shown. Without it the app tries live agents
 # and falls back to the recordings by itself when Azure sign-in is not available.
 DEMO_ONLY = os.environ.get("DEMO_ONLY") == "1"
+MAX_UPLOAD_BYTES = 25 * 2**20  # a full Opta F24 match is a few MB
 STATE: dict = {"live": None}  # None = not known yet, True/False once a check or a request has told us
 
 
@@ -132,7 +133,9 @@ def new_synthetic(seed: int | None = None) -> dict:
 @app.post("/api/match/upload")
 async def upload(file: UploadFile) -> dict:
     """Load a real event feed through an adapter: Opta F24 XML or StatsBomb-style JSON, detected from the content."""
-    data = await file.read()
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"The event feed is larger than {MAX_UPLOAD_BYTES // 2**20} MB")
     match_id = f"upload-{len(MATCHES)}"
     try:
         if data.lstrip(b"\xef\xbb\xbf \r\n\t").startswith(b"<"):

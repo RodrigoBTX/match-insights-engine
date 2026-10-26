@@ -173,7 +173,9 @@ upload endpoint in `app/main.py`.
 - Titles can be generic and grammar can slip, mostly outside English.
 - The labels of the six languages were written without review by native speakers; the long languages (German,
   French) were not checked visually.
-- Not tested: phones and narrow screens, macOS and Linux, real full matches.
+- Layout was checked at 390 px and 820 px wide in headless Edge (no horizontal overflow); it was not tried on a real
+  phone. Not tested: macOS and Linux, real full matches.
+- On a phone the explain panel sits below the charts, so after picking a moment you scroll down to see it.
 
 ## Layout
 

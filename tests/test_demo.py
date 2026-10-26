@@ -154,3 +154,13 @@ def test_stream_endpoint_emits_recorded_result_and_errors_as_events(client, monk
     body["moment_id"], body["audience"] = "m2", "broadcaster"
     ev = [json.loads(line) for line in client.post("/api/explain/stream", json=body).text.splitlines()]
     assert ev[-1]["event"] == "error" and "Live agents are unavailable" in ev[-1]["message"]
+
+
+def test_upload_rejects_an_oversized_feed_and_accepts_a_real_one(client, monkeypatch):
+    monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 1000)
+    big = client.post("/api/match/upload", files={"file": ("big.json", b" " * 1001)})
+    assert big.status_code == 413
+    monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 25 * 2**20)
+    sample = open("tests/fixtures/opta_f24_sample.xml", "rb").read()
+    ok = client.post("/api/match/upload", files={"file": ("f24.xml", sample)})
+    assert ok.status_code == 200 and ok.json()["source"].startswith("opta-f24")
