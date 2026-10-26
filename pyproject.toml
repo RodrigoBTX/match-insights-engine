@@ -2,8 +2,8 @@
 # Development tooling only: the app is installed from requirements.txt and run with uvicorn.
 #   pip install pyink isort pylint
 #   python -m isort app scripts tests smoke_test.py
-#   python -m pyink app scripts tests smoke_test.py
-#   python -m pylint --rcfile=pylintrc app scripts
+#   python -m pyink --preview --enable-unstable-feature string_processing app scripts tests smoke_test.py
+#   python -m pylint --rcfile=pylintrc app scripts smoke_test.py
 
 [tool.pyink]
 line-length = 80

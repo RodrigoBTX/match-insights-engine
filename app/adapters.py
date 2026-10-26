@@ -41,6 +41,21 @@ def _absolute(
 
 
 def from_statsbomb(raw: list[dict], match_id: str = "real-match") -> Match:
+    """Builds a Match from a StatsBomb-style event list.
+
+    The first two teams that appear in the events become home and away.
+
+    Args:
+      raw: The decoded JSON: a list of event objects.
+      match_id: Identifier given to the resulting match.
+
+    Returns:
+      The match in the canonical schema.
+
+    Raises:
+      ValueError: If the content is not a list of event objects or does not
+        contain events from two teams.
+    """
     if not isinstance(raw, list) or not all(isinstance(ev, dict) for ev in raw):
         raise ValueError("Expected a JSON array of event objects")
     team_names: list[str] = []
@@ -257,6 +272,20 @@ def _assign_sequences(events: list[Event]) -> None:
 
 
 def from_opta_f24(xml: bytes | str, match_id: str = "opta-match") -> Match:
+    """Builds a Match from an Opta F24 XML feed.
+
+    The XML is parsed with defusedxml because uploaded files are untrusted.
+
+    Args:
+      xml: The raw XML, as bytes or text.
+      match_id: Identifier given to the resulting match.
+
+    Returns:
+      The match in the canonical schema.
+
+    Raises:
+      ValueError: If the feed has no <Game> element or lacks the team ids.
+    """
     root = ET.fromstring(xml)
     game = next(root.iter("Game"), None)
     if game is None:

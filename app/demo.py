@@ -44,6 +44,20 @@ def is_auth_error(exc: BaseException) -> bool:
 
 
 def fingerprint(match: Match, moments: list[dict]) -> str:
+    """Identifies the match and moments that the recordings belong to.
+
+    The hash covers every event and the facts of every moment, so recordings
+    made
+    for a different match, or before the generator changed, are detected and
+    ignored.
+
+    Args:
+      match: The demo match.
+      moments: Its detected moments.
+
+    Returns:
+      A short hexadecimal digest.
+    """
     payload = {
         "events": [
             [e.id, e.type, e.side, e.minute, e.second, e.player_id, e.x, e.y]
@@ -103,6 +117,14 @@ def load(path: Path = DEMO_FILE) -> tuple[str | None, dict[Key, dict]]:
 
 
 def save(entries: dict[Key, dict], fp: str, path: Path = DEMO_FILE) -> None:
+    """Writes the recorded explanations to disk.
+
+    Args:
+      entries: The recorded results, keyed by (match, moment, player, audience,
+        language).
+      fp: The fingerprint of the match the entries belong to.
+      path: The destination file.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "fingerprint": fp,

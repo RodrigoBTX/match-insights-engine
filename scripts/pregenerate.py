@@ -53,6 +53,11 @@ def build_targets(match, moments) -> list[tuple]:
 
 
 async def main() -> int:
+    """Records the explanations of the demo match with the live agents.
+
+    Returns:
+      The process exit code.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--limit", type=int, default=0, help="only the first N targets"

@@ -232,6 +232,19 @@ class ExplainRequest(BaseModel):
 def resolve(
     req: ExplainRequest,
 ) -> tuple[Match, dict | None, dict | None, tuple]:
+    """Validates an explain request and looks up what it refers to.
+
+    Args:
+      req: The request.
+
+    Returns:
+      The match, the moment, the player facts and the cache key (the moment and
+      the player are None when not requested).
+
+    Raises:
+      HTTPException: 422 for an unknown audience or language, 404 for an unknown
+        match, moment or player.
+    """
     if req.audience not in AUDIENCES or req.language not in LANGUAGES:
         raise HTTPException(422, "Unknown audience or language")
     match = get_match(req.match_id)
@@ -351,6 +364,22 @@ def unavailable_message(key: tuple, reason: str) -> str:
 
 @app.post("/api/explain")
 async def explain(req: ExplainRequest) -> dict:
+    """Explains a moment, the match or a player and returns the whole result.
+
+    Serves the cache first, then the recordings in demo-only mode, then the live
+    agents. A sign-in or service failure falls back to the nearest recording
+    when
+    there is one.
+
+    Args:
+      req: The request.
+
+    Returns:
+      The result dict.
+
+    Raises:
+      HTTPException: 502 or 503 when nothing can be shown.
+    """
     match, moment, player, key = resolve(req)
     if key in CACHE:
         return finalize(

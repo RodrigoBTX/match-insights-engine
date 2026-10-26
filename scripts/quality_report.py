@@ -72,6 +72,16 @@ ROLE_CLAIMS = [
 
 
 def build_targets(match, moments) -> list[dict]:
+    """Lists the cases to measure.
+
+    Args:
+      match: The match being measured.
+      moments: Its detected moments.
+
+    Returns:
+      One dict per case: a moment for each audience, the recap and three players
+      of each side.
+    """
     t = []
     for mo in moments:
         for aud in ("casual_fan", "coach", "broadcaster"):
@@ -146,6 +156,20 @@ def role_mismatches(
 
 
 async def run_one(t: dict, match, moments) -> dict:
+    """Runs one case and checks the result against the automatic rules.
+
+    Infrastructure failures (rate limits and similar) are retried; quality
+    failures are not.
+
+    Args:
+      t: The case.
+      match: The match.
+      moments: Its detected moments.
+
+    Returns:
+      A record with the reasons it failed (empty when clean), the time taken and
+      what the automatic rewrite did.
+    """
     player = pl.player_facts(match, t["player"]["id"]) if t["player"] else None
     retries, t0, result, error = 0, time.perf_counter(), None, None
     for attempt in range(1, INFRA_RETRIES + 2):
@@ -247,6 +271,14 @@ def first_try_clean(records: list[dict]) -> int:
 
 
 def category(reason: str) -> str:
+    """Groups a failure reason into a short category.
+
+    Args:
+      reason: The text of a failure reason.
+
+    Returns:
+      The category, or 'other'.
+    """
     for key in (
         "pipeline error",
         "verifier",
@@ -261,6 +293,16 @@ def category(reason: str) -> str:
 
 
 def write_report(records: list[dict], model: str, seed: int = 7) -> str:
+    """Builds the Markdown quality report.
+
+    Args:
+      records: The record of every measured case.
+      model: The model deployment used.
+      seed: The seed of the measured match (7 is the demo match).
+
+    Returns:
+      The report text.
+    """
     n = len(records)
     ok = [r for r in records if not r["reasons"]]
     raw_ok = [r for r in records if r.get("raw_clean", not r["reasons"])]
@@ -425,6 +467,11 @@ def write_report(records: list[dict], model: str, seed: int = 7) -> str:
 
 
 async def main() -> int:
+    """Measures the quality of the explanations and writes the report.
+
+    Returns:
+      The process exit code.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument(

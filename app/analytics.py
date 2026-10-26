@@ -19,6 +19,16 @@ def _attacking_third(e: Event, x: float) -> bool:
 def score_at(
     match: Match, t: float, inclusive: bool = False
 ) -> tuple[int, int]:
+    """Returns the score of the match at a given time.
+
+    Args:
+      match: The match.
+      t: Time in seconds from kickoff.
+      inclusive: Whether a goal scored exactly at `t` counts.
+
+    Returns:
+      The (home, away) goals.
+    """
     h = a = 0
     for e in match.events:
         if e.type != "goal":
@@ -98,6 +108,16 @@ def win_probability(
 
 
 def possession_windows(match: Match, size: int = 5) -> list[dict]:
+    """Counts the passes of each team in consecutive time windows.
+
+    Args:
+      match: The match.
+      size: Window length in minutes.
+
+    Returns:
+      One dict per window with its start and end minute and each team's share of
+      the passes.
+    """
     counts: dict[int, dict[str, int]] = defaultdict(
         lambda: {"home": 0, "away": 0}
     )
@@ -122,6 +142,14 @@ def possession_windows(match: Match, size: int = 5) -> list[dict]:
 
 
 def xg_timeline(match: Match) -> list[dict]:
+    """Returns the cumulative expected goals of each team, minute by minute.
+
+    Args:
+      match: The match.
+
+    Returns:
+      One dict per minute, from 0 to 92, with the running xG of each side.
+    """
     cum = {"home": 0.0, "away": 0.0}
     by_min: dict[int, dict[str, float]] = defaultdict(
         lambda: {"home": 0.0, "away": 0.0}
@@ -174,6 +202,17 @@ def momentum(match: Match) -> list[dict]:
 
 
 def sequences(match: Match) -> dict[int, dict]:
+    """Summarises every possession sequence of the match.
+
+    A sequence is a run of events that share a sequence id; kickoffs are
+    ignored.
+
+    Args:
+      match: The match.
+
+    Returns:
+      The computed facts of each sequence, keyed by sequence id.
+    """
     groups: dict[int, list[Event]] = defaultdict(list)
     for e in match.events:
         if e.sequence_id is not None and e.type != "kickoff":
@@ -598,6 +637,19 @@ def tactical_shifts(
 
 
 def detect_moments(match: Match) -> list[dict]:
+    """Finds the key moments of the match.
+
+    The moments are goals, red cards, big chances, tactical shifts and chaotic
+    spells, each with the facts the agents are allowed to use.
+
+    Args:
+      match: The match.
+
+    Returns:
+      The moments in match order, each with its id, type, minute, side, title
+      and
+      facts.
+    """
     seqs = sequences(match)
     names = {"home": match.home.name, "away": match.away.name}
     moments: list[dict] = []
@@ -698,6 +750,15 @@ def detect_moments(match: Match) -> list[dict]:
 
 
 def match_summary(match: Match) -> dict:
+    """Returns the headline figures of the whole match.
+
+    Args:
+      match: The match.
+
+    Returns:
+      A dict with the score, possession, shots, shots on target, expected goals
+      and cards of each side.
+    """
     h, a = score_at(match, 10**9)
     shots = {
         s: sum(

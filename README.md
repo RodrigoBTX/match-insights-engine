@@ -196,6 +196,20 @@ upload endpoint in `app/main.py`.
 | `scripts/` | `pregenerate` (record), `quality_report` (measure), `verifier_probe` (does the Verifier still catch errors) |
 | `tools/ui/` | Browser test scripts (real clicks and screenshots) |
 | `tests/` | pytest suite: `pip install -r requirements-dev.txt`, then `python -m pytest tests -q` |
+| `pyproject.toml`, `pylintrc` | Code style settings (see below) |
+
+## Code style
+
+Python follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html): 80 columns, ordered
+imports, Google-style docstrings. It is formatted with `pyink` (Google's fork of black) and `isort`, and checked with
+`pylint`. The settings are in `pyproject.toml` and `pylintrc`:
+
+```powershell
+pip install pyink isort pylint
+python -m isort app scripts tests smoke_test.py
+python -m pyink --preview --enable-unstable-feature string_processing app scripts tests smoke_test.py
+python -m pylint --rcfile=pylintrc app scripts smoke_test.py
+```
 
 ## License
 

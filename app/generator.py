@@ -52,6 +52,11 @@ GOAL_W = 7.32
 
 
 def build_players() -> list[Player]:
+    """Creates the 22 players: eleven per side, with fixed names and positions.
+
+    Returns:
+      The players of both teams (ids 1 to 11 for home, 101 to 111 for away).
+    """
     players: list[Player] = []
     for side, names in (("home", HOME_NAMES), ("away", AWAY_NAMES)):
         base = 1 if side == "home" else 101
@@ -153,6 +158,16 @@ class Gen:
         positions: tuple[str, ...] | None = None,
         weights: dict[str, float] | None = None,
     ) -> Player:
+        """Picks a random outfield player of a side.
+
+        Args:
+          side: 'home' or 'away'.
+          positions: Restricts the choice to these positions.
+          weights: How likely each position is; defaults to TOUCH_WEIGHT.
+
+        Returns:
+          The chosen player (never the goalkeeper).
+        """
         weights = weights or self.TOUCH_WEIGHT
         pool = [
             p for p in self.players if p.side == side and p.position != "GK"
@@ -178,6 +193,20 @@ class Gen:
         ley: float | None = None,
         **kw,
     ) -> None:
+        """Appends one event, converting local pitch coordinates to absolute
+        ones.
+
+        Args:
+          t: Time in seconds from kickoff.
+          side: The team that owns the event.
+          etype: The event type.
+          player: The player involved, if any.
+          lx: Start x, in the owning side's own attacking direction.
+          ly: Start y.
+          lex: End x, for passes and shots.
+          ley: End y.
+          **kw: Extra event fields such as outcome or xg.
+        """
         ax, ay = to_abs(side, lx, ly)
         end = to_abs(side, lex, ley) if lex is not None else (None, None)
         self.events.append(
@@ -240,6 +269,18 @@ class Gen:
         xg: float | None = None,
         speed: float | None = None,
     ) -> None:
+        """Adds a shot or a goal, and the keeper's save when it is saved.
+
+        Args:
+          t: Time in seconds from kickoff.
+          side: The shooting team.
+          shooter: The shooter.
+          lx: Shot x, in the shooting side's own attacking direction.
+          ly: Shot y.
+          outcome: 'goal', 'saved' or another shot outcome.
+          xg: Expected goals; computed from the position when omitted.
+          speed: Shot speed in km/h; random when omitted.
+        """
         xg = xg if xg is not None else expected_goals(lx, ly)
         speed = speed or round(self.r.uniform(78, 112), 1)
         etype = "goal" if outcome == "goal" else "shot"
@@ -277,6 +318,19 @@ class Gen:
     # ------------------------------------------------------------------ random
     # play
     def random_sequence(self, t: float, minute: float) -> float:
+        """Plays one random possession sequence and returns the time after it.
+
+        The side with the ball, the length of the sequence and whether it ends
+        in a
+        shot, a lost ball or a foul depend on the phase of the match.
+
+        Args:
+          t: Start time in seconds from kickoff.
+          minute: The match minute, which sets the phase of play.
+
+        Returns:
+          The time in seconds at which the next sequence can start.
+        """
         home_p, shot_p, lengths = phase(minute)
         side = "home" if self.r.random() < home_p else "away"
         other = "away" if side == "home" else "home"
@@ -390,6 +444,14 @@ class Gen:
         return t + 20
 
     def counter_goal_away(self, t: float) -> float:
+        """Scripted: the away side counter-attacks and scores against the play.
+
+        Args:
+          t: Start time in seconds from kickoff.
+
+        Returns:
+          The time in seconds after the goal.
+        """
         # Away win the ball deep in their own half, break at pace and score
         # against the run of play.
         self.seq += 1
@@ -404,6 +466,14 @@ class Gen:
         return t2 + 30
 
     def home_big_chance(self, t: float) -> float:
+        """Scripted: a home build-up ends in a big chance that is saved.
+
+        Args:
+          t: Start time in seconds from kickoff.
+
+        Returns:
+          The time in seconds after the chance.
+        """
         self.seq += 1
         t, _ = self.build_up(t, "home", [(55, 30), (70, 42), (84, 36)])
         self.shot(
@@ -438,6 +508,14 @@ class Gen:
         return t + 30
 
     def home_pressure_winner(self, t: float) -> float:
+        """Scripted: a high press, fourteen passes of pressure, then the winner.
+
+        Args:
+          t: Start time in seconds from kickoff.
+
+        Returns:
+          The time in seconds after the goal.
+        """
         # High press wins the ball, then 14 passes of sustained pressure before
         # the winner.
         self.seq += 1
@@ -478,6 +556,11 @@ class Gen:
     # ------------------------------------------------------------------ main
     # loop
     def run(self) -> list[Event]:
+        """Generates the whole match: the scripted story plus random play.
+
+        Returns:
+          The events in time order, with ids and minute and second filled in.
+        """
         end_t = 93 * 60
         t = 0.0
         self.seq = 0

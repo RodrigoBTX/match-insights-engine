@@ -57,6 +57,14 @@ def pass_quality(e: Event, leads_to_shot: bool) -> float:
 
 
 def build_stats(match: Match) -> dict[int, dict]:
+    """Computes the statistics and the impact score of every player.
+
+    Args:
+      match: The match.
+
+    Returns:
+      The statistics of each player, keyed by player id.
+    """
     creators = chance_creators(match)
     stats: dict[int, dict] = {}
     for p in match.players:

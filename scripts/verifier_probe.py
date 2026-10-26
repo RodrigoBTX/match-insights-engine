@@ -75,6 +75,11 @@ async def ask(text: dict, facts: dict) -> dict:
 
 
 async def main() -> int:
+    """Plants errors in a correct text and checks that the Verifier finds them.
+
+    Returns:
+      The process exit code.
+    """
     goal = next(m for m in MOMENTS[demo.DEMO_MATCH_ID] if m["type"] == "goal")
     correct, planted, markers = build_texts(goal["facts"])
     caught_total, false_total = 0, 0

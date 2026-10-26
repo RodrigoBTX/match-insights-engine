@@ -60,6 +60,20 @@ def framing_issues(
 
 
 def numeric_check(text: str, allowed: list[float]) -> dict:
+    """Checks that every figure in a text can be traced to the data.
+
+    Integers up to 10 are ignored. Integers may be rounded or truncated;
+    decimals
+    must match within a small tolerance.
+
+    Args:
+      text: The text to check.
+      allowed: The figures that appear in the facts and tool results.
+
+    Returns:
+      A dict with the number of figures checked and the list that could not be
+      traced.
+    """
     checked, unverified = 0, []
     for token in NUM.findall(text):
         n = _parse(token)

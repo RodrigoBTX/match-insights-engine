@@ -101,6 +101,21 @@ def parse_json(text: str) -> dict:
 
 
 def make_tools(match: Match, trace: list[dict], evidence: list[str]):
+    """Creates the analytics tools that the Analyst agent can call.
+
+    Every call is appended to `trace`, and every result to `evidence`, so that
+    the
+    numeric guard can treat those figures as traceable data.
+
+    Args:
+      match: The match the tools query.
+      trace: List that receives one entry per tool call.
+      evidence: List that receives each tool result as JSON text.
+
+    Returns:
+      The tools: window statistics, sequence details and score with win
+      probability.
+    """
     seqs = an.sequences(match)
 
     def log(name: str, args: dict) -> None:
@@ -168,6 +183,16 @@ def make_tools(match: Match, trace: list[dict], evidence: list[str]):
 
 
 def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
+    """Creates the player tools used for a player spotlight.
+
+    Args:
+      match: The match the tools query.
+      trace: List that receives one entry per tool call.
+      evidence: List that receives each tool result as JSON text.
+
+    Returns:
+      The tools: the statistics of one player and the top players of a side.
+    """
     stats = {s["id"]: s for s in pl.overview(match)}
 
     def reply(tool_name: str, args: dict, payload: dict) -> str:
@@ -805,6 +830,20 @@ async def explain(
     player: dict | None = None,
     revise: bool = True,
 ) -> dict:
+    """Runs the whole pipeline and returns its final result.
+
+    Args:
+      match: The match being explained.
+      moment: The selected moment, or None for a recap or a player spotlight.
+      moments: All moments of the match.
+      audience: One of AUDIENCES.
+      language: One of LANGUAGES.
+      player: The player facts for a spotlight, or None.
+      revise: Whether one automatic rewrite is allowed when the checks object.
+
+    Returns:
+      The result dict, or an empty dict if the pipeline produced none.
+    """
     result: dict = {}
     async for ev in run_pipeline(
         match, moment, moments, audience, language, player, revise
