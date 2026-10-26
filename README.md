@@ -198,37 +198,11 @@ upload endpoint in `app/main.py`.
 | `tests/` | pytest suite: `pip install -r requirements-dev.txt`, then `python -m pytest tests -q` |
 | `pyproject.toml`, `pylintrc` | Code style settings (see below) |
 
-## Code style
+## Code quality
 
-Python follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html): 80 columns, ordered
-imports, Google-style docstrings. It is formatted with `pyink` (Google's fork of black) and `isort`, and checked with
-`pylint`. The settings are in `pyproject.toml` and `pylintrc`:
-
-```powershell
-pip install pyink isort pylint
-python -m isort app scripts tests smoke_test.py
-python -m pyink --preview --enable-unstable-feature string_processing app scripts tests smoke_test.py
-python -m pylint --rcfile=pylintrc app scripts smoke_test.py
-```
-
-JavaScript (`static/app.js` and the browser test scripts in `tools/ui/`) follows the
-[Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript), checked with ESLint and `eslint-config-airbnb-base`
-(the settings are in `.eslintrc.json`; `package.json` only lists these development tools, the app itself has no Node
-dependencies):
-
-```powershell
-npm install
-npm run lint
-```
-
-Deliberate exceptions, all in `.eslintrc.json` or marked in the code with the reason:
-
-- `linebreak-style` is off: the repository stores LF, but Git on Windows checks files out with CRLF.
-- `app.js` is a classic script, not an ES module, so that the browser tests can read its `state`; for the same reason it
-  keeps its `'use strict'` line, and function declarations may be used before they are defined (they are hoisted and
-  the render and select functions call each other).
-- The test scripts in `tools/ui/` are command-line drivers that wait, click and wait again, so `no-await-in-loop`,
-  `no-console` and `for...of` are allowed there.
+96 automated tests (`python -m pytest tests -q`) plus browser tests that drive a real Edge (`tools/ui/`). The Python code
+follows the Google Python Style Guide (pyink, isort, pylint) and the JavaScript the Airbnb style guide (ESLint); the settings
+are in `pyproject.toml`, `pylintrc` and `.eslintrc.json`.
 
 ## License
 

@@ -32,4 +32,18 @@ Notes learned the hard way:
   and never kill every `msedge.exe`: one of them may be your own browser.
 - `contact_sheet.py` (needs `pip install pillow`) tiles screenshots into one image to review many at once.
 
-Lint: `npm install` then `npm run lint` at the repository root (Airbnb rules, see the README).
+## Code style and lint
+
+JavaScript (`static/app.js` and these scripts) follows the Airbnb JavaScript Style Guide, checked with ESLint:
+`npm install` then `npm run lint` at the repository root. `package.json` only lists these development tools; the app has
+no Node dependencies. Python follows the Google style: `pip install pyink isort pylint`, then the commands at the top of
+`pyproject.toml`.
+
+Deliberate exceptions (`.eslintrc.json`, or marked in the code with the reason):
+
+- `linebreak-style` is off: the repository stores LF, but Git on Windows checks files out with CRLF.
+- `app.js` is a classic script, not an ES module, so that the browser tests can read its `state`; for the same reason it
+  keeps its `'use strict'` line, and function declarations may be used before they are defined (they are hoisted and the
+  render and select functions call each other).
+- These scripts are command-line drivers that wait, click and wait again, so `no-await-in-loop`, `no-console` and
+  `for...of` are allowed here.
