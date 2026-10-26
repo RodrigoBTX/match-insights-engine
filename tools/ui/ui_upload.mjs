@@ -1,10 +1,11 @@
 // Uploads real-feed fixtures through the page's file input and reports what the UI shows.
 import { spawn } from "node:child_process";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const [, , outDir, ...files] = process.argv;
+mkdirSync(outDir, { recursive: true });
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const PORT = 9334;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

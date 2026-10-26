@@ -1,8 +1,14 @@
-﻿agent-framework
-azure-identity
-python-dotenv
-fastapi
-uvicorn[standard]
-python-multipart
-pydantic
-defusedxml
+﻿# Microsoft Agent Framework: only the three packages the app imports, pinned to the tested versions.
+# (The `agent-framework` meta-package pulls ~125 packages for every connector; one of them has file paths so long
+# that the install fails on Windows without long-path support, and it took about 6 minutes.)
+agent-framework-core==1.22.0
+agent-framework-foundry==1.15.0
+agent-framework-orchestrations==1.3.2
+
+azure-identity>=1.26.0
+python-dotenv>=1.2.4
+fastapi>=0.141.1
+uvicorn[standard]>=0.54.0
+python-multipart>=0.0.32
+pydantic>=2.14.1
+defusedxml>=0.7.1

@@ -1,120 +1,130 @@
 # Match Insights Engine
 
 Microsoft Premier League Hackathon ("Inside the Game") entry.
-Turns **synthetic football events** into **explainable match intelligence**: ingest events, compute
-statistics, explain *why* a moment matters, render it on screen, and personalise it per audience and language.
 
-## How it works
+**Explainable, verifiable AI match intelligence.** It turns synthetic football events into explanations of *why a
+moment mattered* for a broadcaster, a coach or a fan, in six languages, and then **checks what the AI wrote**:
+the model never owns the numbers. Four agents on Microsoft Foundry write the explanation; computed facts and
+deterministic checks decide what reaches the screen.
 
-```
-Synthetic generator ─┐
-                     ├─► canonical event schema ─► analytics (deterministic) ─► tools
-StatsBomb-style feed ─┘      (app/schema.py)         (app/analytics.py)           │
-                                                                                   ▼
-        Analyst ──► Narrator ──► Verifier ──► Localiser ──► numeric guard ──► FastAPI ──► HTML UI
-        (tools)     (why it      (checks      (audience +    (deterministic)    (streams agent
-                    matters)     claims)      language)                         progress)
-```
+![Selecting a moment shows its figures and a replay instantly](docs/img/select-a-moment.jpg)
 
-- **Numbers are never LLM-generated.** Possession, xG, win probability, sequence type (counter-attack,
-  sustained pressure, set piece) are computed in `app/analytics.py`. The Analyst agent calls those as tools
-  and the later agents may only restate its findings.
-- **Four agents** in a `SequentialBuilder` workflow (Microsoft Agent Framework) on a Microsoft Foundry model
-  deployment. The UI streams each agent's progress and exposes the tool calls and timings.
-- **Two layers of grounding.** The Verifier agent checks every claim against the facts; a deterministic numeric
-  guard (`app/grounding.py`) then checks that each figure in the final text can be traced to the data. In an
-  adversarial test the Verifier alone missed some planted wrong figures, which is why the guard exists.
-  Derived figures (a difference, a sum) are reported as untraced rather than silently accepted.
-- **Control vs chaos and tactical shifts.** Each 5-minute window is classified as home control, away control,
-  balanced or chaotic (control = possession + field tilt; chaos = possession changing hands far more often than
-  the match average). The 10-minute swings in territory and press height are detected as tactical shifts and
-  linked to the goal or red card that *preceded* them. Both appear as explainable moments.
-- **Player spotlight and pass quality.** `app/players.py` computes progressive passes, a 0-1 pass-quality score,
-  chances created, shot speed and a formula-based impact score (formula in the module docstring and shown in the
-  UI: it is explicitly *not* a human rating). Selecting a player draws their passes and shots, and the same
-  four-agent pipeline explains them, with tools to compare the player against teammates and opponents.
-- **Goal roles are computed, not inferred.** `goal_role` labels each goal (opening, equaliser, go-ahead,
-  match-winning...) from the score line. Early on, a spotlight called an equaliser "the winning goal" and the
-  Verifier approved it, so the role is now handed to the agents as a fact and the Verifier checks against it.
-- **Broadcast view.** For the current selection (a moment, a player or the whole match) the agents also write an
-  on-screen lower third: a news-style title and one on-air sentence, drawn over the replay with a scorebug, a tag,
-  a win-probability bar and a verification mark. The *Narrator* writes the text, so the Verifier and the checks
-  below cover it like any other text; the Localiser translates it. Deep link: `/?moment=m7&broadcast=1`.
-  An incomplete graphic is never cached.
-- **The figures on screen are computed, not written by the model** (`app/chips.py`). The three cards in the
-  graphic and the key figures in the result panel come from the data, always name the teams and show both sides
-  of a comparison ("63% – 37%", "NOR – EAS"; "20% → 67%", "EAS"). They depend on the role (a goalkeeper gets
-  saves, not zero goals) and only their labels are translated. This replaced model-chosen cards after one read
-  "63% Possession" with no team and "24 Shots" for one side only.
-- **Wording checks the numbers cannot see.** A chaotic spell belongs to both teams, so any short field (headline,
-  graphic title or line, explanation) that names only one of them is flagged and shows as "Needs a check". On the
-  first recording 4 of 5 chaotic-spell results failed this check, the Verifier having approved them all; prompts
-  alone did not fix it (the Portuguese text kept reframing it), the check plus re-recording did.
-- **Selection card (instant, no agents).** Selecting a moment (marker or list), a window of the control strip or a
-  player shows its key figures and a small replay in the side panel straight away, from data already in the page.
-  ◀ ▶ buttons or the arrow keys move between moments; a window offers to open the moment that starts in it.
-  The agents run only when you press *Explain*.
-- **Audiences:** casual fan, coach, broadcaster. **Languages:** EN, PT, ES, FR, DE, IT.
-- **Real data:** only `app/schema.py` is read downstream. `app/adapters.py` converts a StatsBomb-style
-  event feed into that schema (upload it with *Load real event feed*). It is tested against a small fixture
-  (`tests/`), not against a full real match.
+## Try it in two minutes (no Azure needed)
 
-## Run
+The repository includes 79 explanations recorded earlier by the real agents, so the whole interface runs without
+an Azure account.
 
 ```powershell
+git clone https://github.com/RodrigoBTX/match-insights-engine.git
+cd match-insights-engine
 python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
-az login --use-device-code          # authentication is keyless (Azure CLI credential)
-copy .env.example .env              # then set your Foundry project endpoint and deployment name
-.\.venv\Scripts\python -m uvicorn app.main:app --port 8000
+.venv\Scripts\python -m pip install -r requirements.txt     # 66 packages, about 3 minutes
+$env:DEMO_ONLY = "1"                                        # never contacts Azure
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
+On macOS or Linux use `.venv/bin/python` instead of `.venv\Scripts\python`, and `export DEMO_ONLY=1`.
+Open http://127.0.0.1:8000. The header badge says **Recorded demo**. Tested on Windows 11 with Python 3.13; not
+tested on macOS or Linux.
 
-Open http://127.0.0.1:8000. Deep link to a moment: `/?moment=m1`.
+What to try:
+1. Click a marker on the **Momentum** timeline (G goal, R red card, C big chance, T tactical shift, ≈ chaotic spell).
+   Its figures and a small replay appear at once on the right. Move on with ◀ ▶ or the arrow keys.
+2. Press **Explain this moment**: the recorded explanation appears with its verification mark. Change the
+   audience (casual fan, coach, broadcaster) or the language.
+3. Press **Broadcast view** for an on-air graphic of the moment, a player or the whole match.
+4. Click a square in **Control vs chaos**, or a player in the table, for their figures.
 
-Tests: `.\.venv\Scripts\python -m pytest tests -q`
+![Players and the control-vs-chaos strip](docs/img/player-spotlight.jpg)
 
-## Running without Azure (recorded demo)
+## Microsoft technologies used
 
-The agents need an Azure sign-in and a Foundry deployment. So that anyone can still run the project, the repository
-includes `demo/explanations.json`: **79 explanations recorded earlier by the real agents** for the synthetic demo
-match (seed 7). They cover every key moment and the match recap (casual fan, coach and broadcaster in English;
-casual fan and broadcaster in Portuguese) and the six highest-impact players of each team (casual fan and
-broadcaster, English). The broadcast view works from them too.
+- **Microsoft Foundry**: the model deployment (gpt-4.1-mini) and project endpoint used by every agent.
+- **Microsoft Agent Framework (Python)**: four agents (Analyst, Narrator, Verifier, Localiser) in a
+  `SequentialBuilder` workflow; the Analyst queries the match through **tools**; agent progress is streamed to the UI.
+- **Azure Identity**: keyless sign-in through the Azure CLI credential.
+
+Not used: Azure MCP, Fabric, Azure databases, an Azure-hosted deployment (the project runs locally).
+
+## What it does
+
+- **Instant facts, no AI needed.** Possession, expected goals, momentum, win probability, control vs chaos,
+  tactical shifts (territory and press height), pass quality, player impact and the role of each goal
+  (opening, equaliser, match-winning) are computed in `app/analytics.py` and `app/players.py`.
+- **Four agents explain it on request**: the Analyst, a Narrator, a Verifier that checks each claim, and a
+  Localiser for the audience and one of six languages (EN, PT, ES, FR, DE, IT).
+- **Broadcast view.** An on-air lower third over the replay: a scorebug, a tag, a title and one sentence written by
+  the agents, a win-probability bar and a verification mark.
+
+  ![A broadcast graphic for a red card](docs/img/broadcast-red-card.jpg)
+
+- **The figures on screen are computed, not written by the model** (`app/chips.py`): always both teams
+  ("63% – 37%", "NOR – EAS"), role-aware (a goalkeeper gets saves), only the labels translated.
+- **Real data adapters** for Opta F24 XML and StatsBomb-style JSON (see the limits below).
+- **Runs without Azure** from recorded results, labelled as recorded; falls back to them by itself when Azure
+  sign-in is not available.
+
+## Why you can trust what it says
+
+Every layer exists because an earlier one failed in a test:
+
+1. **Numbers are computed** from the data. The agents interpret them and query them through tools.
+2. **A Verifier agent** checks each claim against the facts.
+3. **A deterministic numeric guard** (`app/grounding.py`) checks that every figure in the final text traces to the
+   data. It exists because the Verifier alone let wrong figures through in an adversarial test.
+4. **Computed goal roles.** A spotlight once called an equaliser "the winning goal" and the Verifier approved it;
+   the role is now a fact handed to the agents.
+5. **Wording checks the numbers cannot see.** A chaotic spell belongs to both teams, so a headline, graphic
+   title or line that names only one is flagged ("Needs a check").
+
+### Measured quality (first try, no retries)
+
+`python -m scripts.quality_report` runs 49 cases once each and counts the first result
+([report](docs/quality_report.md), [first run](docs/quality_report_run1.md)).
+
+| | Clean on the first try |
+|---|---|
+| First run | **84%** (41/49) |
+| After fixing what it found | **96%** (47/49) |
+
+- **That is not an independent test:** the fixes were made after seeing the first run's failures, on the same 49
+  cases. And a different run can give a different result, because the model varies.
+- **The weak spot is still the chaotic spell: 2 of 4 cases failed**, with a headline naming only one team, even
+  after the rule was tightened. The check flags it ("Needs a check") instead of hiding it.
+- A pass means *no detectable error*: no verifier flag, every figure traced, graphic present, no one-sided chaos
+  wording, no wrong goal role. It does not mean the writing is good; titles can still be generic.
+- **Does the Verifier still catch errors?** `python -m scripts.verifier_probe` plants six errors in a correct text.
+  It caught 15 of 18 over three rounds and listed no false alarm on the correct text (counted by keyword).
+- **Speed:** a new live explanation takes about 11 s (median; slowest 26 s). Recorded results and the selection
+  card are instant.
+- The recordings in `demo/` are **the best of up to four attempts**, so they show the system at its best; the
+  table above is the honest average.
+
+## Run with the live agents
 
 ```powershell
-$env:DEMO_ONLY = "1"      # never contacts Azure (bash: DEMO_ONLY=1)
-python -m uvicorn app.main:app --port 8000
+az login --use-device-code          # keyless sign-in
+copy .env.example .env              # then set FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
-
-- Without `DEMO_ONLY` the app tries the live agents and **falls back to the recordings by itself** if Azure
-  sign-in is unavailable. The header badge says *Live agents* or *Recorded demo*, and every recorded result is
-  labelled as such. Nothing recorded is ever presented as live.
-- An unrecorded combination (for example coach in French) shows the recorded English version with a notice. A new
-  synthetic match or an uploaded feed has no recordings, so it needs the live agents and says so clearly.
-- Each recording is tied to a fingerprint of the demo match. If the generator or analytics change, the old
-  recordings are ignored rather than attached to the wrong facts. To re-record, sign in with `az login` and run
-  `python -m scripts.pregenerate` (resumable; retries until a result is verified, fully traced and, for the
-  broadcaster, has its graphic; throttled on purpose, because three parallel pipelines hit the deployment's rate limit).
-- Recordings are the best of up to four attempts, so they show the system at its best, not its average. Measuring
-  the average is a separate job.
-
-Tests: `pip install -r requirements-dev.txt`, then `python -m pytest tests -q`.
-
-## Configuration
-
-Everything model-related is in `.env` (copy `.env.example`):
+The badge then says **Live agents**. Without `DEMO_ONLY` the app tries the live agents and falls back to the
+recordings if Azure is unavailable. Everything model-related is in `.env`:
 
 ```
 FOUNDRY_PROJECT_ENDPOINT=https://<resource>.services.ai.azure.com/api/projects/<project>
 FOUNDRY_MODEL=<deployment name>
 ```
 
-- **Another model:** deploy it in Foundry, put its deployment name in `FOUNDRY_MODEL`, restart. No code change.
+- **Another model:** deploy it in Foundry, put its deployment name in `FOUNDRY_MODEL`, restart.
 - **Another Azure account or project:** `az login` with that account, set the new endpoint, restart.
 - **Another model provider:** the client is created in one place, `client()` in `app/agents.py`.
-- All four agents share one model today; a stronger model for the Verifier only is a small change, not done.
-- Authentication is the Azure CLI credential (`az login`), which suits a local demo. A hosted deployment
-  would use a managed identity instead; that is not implemented.
+- All four agents share one model. Authentication is the Azure CLI credential, which suits a local demo; a hosted
+  deployment would use a managed identity, which is not implemented.
+
+### Recordings
+
+Each recording is tied to a fingerprint of the demo match; if the generator or the analytics change, old
+recordings are ignored instead of being attached to the wrong facts. To re-record, sign in and run
+`python -m scripts.pregenerate` (resumable; two pipelines in parallel because three hit the deployment's rate limit).
 
 ## Using real match data
 
@@ -125,30 +135,50 @@ Use **Load real event feed** in the UI (or `POST /api/match/upload`). The format
 | StatsBomb-style event JSON | `from_statsbomb` | Written from the documented layout; tested on a small fixture only |
 | Opta F24 XML | `from_opta_f24` | Structure, end-coordinate qualifiers and the corner flag checked against the open-source `socceraction` parser; event type ids from a secondary source; tested on a hand-made fixture, never on a real feed |
 
-Things to know before trusting real data:
 - **Opta card qualifiers are unconfirmed.** The adapter assumes 31 = yellow, 32 = second yellow, 33 = red.
-- **F24 carries no player names and no xG** that could be confirmed: players appear as `Player <id>` and xG comes
-  from this project's distance/angle model, not from the provider.
+- F24 carries no player names and no xG that could be confirmed: players appear as `Player <id>`; xG comes from this
+  project's distance/angle model.
 - Opta has no possession id, so sequences are derived (a new team on the ball, a gap over 12 s, or a ball won).
-- Windows with too little play (under 10 passes per 5 minutes) are never reported as chaotic and cannot
-  produce a tactical shift, so a sparse or gappy feed does not invent events.
+- Windows with under 10 passes per 5 minutes are never reported as chaotic and cannot produce a tactical shift.
 - Thresholds for chaos and tactical shifts were tuned on the synthetic match and need recalibrating on real data.
-- Extra time and shoot-outs are not modelled (the analysis assumes about 93 minutes; Opta period 5 is ignored).
+- Extra time and shoot-outs are not modelled (the analysis assumes about 93 minutes).
 - Feeds are untrusted input: XML is parsed with `defusedxml`.
-- **The hackathon requires synthetic data**, so the demo should use the synthetic match. Do not commit real
-  match files to this repository; provider data carries its own licence terms.
+- **The hackathon requires synthetic data**, so the demo uses the synthetic match; do not commit real match files
+  (provider data carries its own licence terms).
 
 To support another provider, write a function that returns a `Match` (see `app/schema.py`) and call it from the
 upload endpoint in `app/main.py`.
+
+## Known limitations
+
+- The demo match is synthetic, one match only; recordings cover that match only.
+- The Verifier is a language model and is not reliable alone; the deterministic checks cover figures and the
+  framing cases found so far, not every possible error.
+- Titles can be generic and grammar can slip, mostly outside English.
+- The labels of the six languages were written without review by native speakers; the long languages (German,
+  French) were not checked visually.
+- Not tested: phones and narrow screens, macOS and Linux, real full matches.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| `app/schema.py` | Canonical Pydantic event model |
+| `app/schema.py` | Canonical Pydantic event model: the only thing the rest reads |
 | `app/generator.py` | Seeded synthetic match with a scripted story |
-| `app/analytics.py` | Stats, xG, momentum, win probability, key-moment detection |
-| `app/agents.py` | Analyst / Narrator / Localiser agents and tools |
-| `app/adapters.py` | Real-data adapter (StatsBomb-style) |
+| `app/analytics.py` | Stats, xG, momentum, win probability, control vs chaos, tactical shifts, key moments |
+| `app/players.py` | Player statistics, pass quality, impact |
+| `app/agents.py` | The four agents, their tools and prompts, the broadcast graphic |
+| `app/grounding.py` | Numeric guard and wording checks |
+| `app/chips.py` | Computed key figures (six-language labels) |
+| `app/demo.py` | Recorded demo mode |
+| `app/adapters.py` | Opta F24 and StatsBomb adapters |
 | `app/main.py` | FastAPI endpoints |
-| `static/` | HTML, CSS and JS frontend |
+| `static/` | HTML, CSS and JS front end |
+| `demo/explanations.json` | The 79 recordings |
+| `scripts/` | `pregenerate` (record), `quality_report` (measure), `verifier_probe` (does the Verifier still catch errors) |
+| `tools/ui/` | Browser test scripts (real clicks and screenshots) |
+| `tests/` | pytest suite: `pip install -r requirements-dev.txt`, then `python -m pytest tests -q` |
+
+## License
+
+MIT, see [LICENSE](LICENSE).

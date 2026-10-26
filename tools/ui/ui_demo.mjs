@@ -1,10 +1,11 @@
 // Walks the app the way someone without Azure would: badge, recorded result, fallback, player, broadcast, new match.
 import { spawn } from "node:child_process";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const [, , outDir] = process.argv;
+mkdirSync(outDir, { recursive: true });
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const PORT = 9336;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

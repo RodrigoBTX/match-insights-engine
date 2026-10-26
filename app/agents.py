@@ -134,8 +134,9 @@ def make_player_tools(match: Match, trace: list[dict], evidence: list[str]):
 CHAOS_RULE = (
     "If the event is 'chaotic_spell', the headline, the explanation and any graphic title or line must describe a "
     "loss of control by BOTH teams (possession changing hands more often, shorter moves, more turnovers): never "
-    "present it as one team raising its pressure, possession or intensity, and never name only one team in the "
-    "headline. If the event is 'tactical_shift', name the team that gained ground. "
+    "present it as one team raising its pressure, possession or intensity. The headline and the graphic title "
+    "must name BOTH teams or NEITHER (for example 'Both teams lose control for ten minutes'), never just one. "
+    "If the event is 'tactical_shift', name the team that gained ground. "
 )
 
 GRAPHIC_RULE = (
@@ -224,9 +225,13 @@ VERIFIER_PROMPT = (
     "direction; a lone value does not show a change. Describing a goal as the opener, the equaliser, "
     "go-ahead or match-winning is supported only if it matches goal_role or goals[].role in the facts; if the "
     "text gives a goal a role that differs from it, that is an issue. If the Narrator JSON has a \"graphic\" "
-    "object, check its title, line and chip values exactly like the rest. Reply with ONLY a JSON object: "
+    "object, check its title and line exactly like the rest (the figure cards beside it are computed from the "
+    "data; they are not yours to check). Reply with ONLY a JSON object: "
     '{"verdict": "verified" or "issues", "claims_checked": <integer>, "issues": ["short description of each '
-    'unsupported claim, empty if none"]}. Be strict but do not flag harmless paraphrase.'
+    'UNSUPPORTED claim"]}. "issues" must contain ONLY claims that are not supported or are contradicted. Never '
+    'list a claim that is fine, never write "no issue" or "matches the facts" in it, and never list comments or '
+    "structural remarks. If everything is supported, return verdict \"verified\" and an empty list. "
+    "Be strict but do not flag harmless paraphrase."
 )
 LOCALISER_PROMPT = (
     "You are the Personalisation agent. Take the Narrator's JSON. If the Verifier listed issues, drop or correct "
